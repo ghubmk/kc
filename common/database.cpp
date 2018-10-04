@@ -547,7 +547,8 @@ kd_trans::kd_trans() :
 {}
 
 kd_trans::kd_trans(kd_trans &&o) :
-	m_db(o.m_db), m_result(o.m_result), m_done(o.m_done)
+	m_db(o.m_db), m_result(o.m_result),
+	m_finalizer(std::move(o.m_finalizer)), m_done(o.m_done)
 {
 	o.m_done = true;
 }
@@ -580,6 +581,12 @@ ECRESULT kd_trans::commit()
 	auto ret = m_db->Commit();
 	m_done = true;
 	return ret;
+}
+
+ECRESULT kd_trans::commit(std::unique_ptr<kt_finalizer> &&f)
+{
+	m_finalizer = std::move(f);
+	return commit();
 }
 
 ECRESULT kd_trans::rollback()

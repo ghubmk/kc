@@ -233,6 +233,15 @@ namespace KC {
 
 class ECCacheManager final {
 public:
+	class cache_unique_lock final : public kt_finalizer {
+		public:
+		cache_unique_lock(ECCacheManager &, unsigned int fnev_mask);
+		ECCacheManager *operator->() { return &cmgr; }
+		private:
+		ECCacheManager &cmgr;
+		std::unique_lock<std::recursive_mutex> m_acl, m_cell, m_object, m_store;
+	};
+
 	ECCacheManager(std::shared_ptr<ECConfig>, ECDatabaseFactory *lpDatabase);
 	virtual ~ECCacheManager();
 	ECRESULT PurgeCache(unsigned int ulFlags);

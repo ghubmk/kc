@@ -3082,6 +3082,7 @@ static ECRESULT CreateFolder(ECSession *lpecSession, ECDatabase *lpDatabase,
 			return er;
 	}
 
+	ECCacheManager::cache_unique_lock untransacted_lock(*g_lpSessionManager->GetCacheManager(), fnevObjectModified);
 	if (!bExist && !(type & FOLDER_SEARCH)) {
 		SOURCEKEY sParentSourceKey;
 
@@ -6584,7 +6585,7 @@ static ECRESULT MoveObjects(ECSession *lpSession, ECDatabase *lpDatabase,
 			cop.sNewEntryId.size(), cop.sNewEntryId, cop.ulId);
 	}
 
-	er = dtx.commit();
+	er = dtx.commit(std::make_unique<ECCacheManager::cache_unique_lock>(*gcache, fnevObjectModified));
 	if (er != erSuccess) {
 		ec_log_debug("MoveObjects: database commit failed: %s (%x)", GetMAPIErrorMessage(er), er);
 		return er;
@@ -6636,6 +6637,7 @@ static ECRESULT MoveObjects(ECSession *lpSession, ECDatabase *lpDatabase,
 
 	//Update destination folder
 	gcache->Update(fnevObjectModified, ulDestFolderId);
+	dtx.finalize();
 	g_lpSessionManager->NotificationModified(MAPI_FOLDER, ulDestFolderId);
 	// Update the grandfolder of dest. folder
 	gcache->GetParent(ulDestFolderId, &ulGrandParent);
@@ -6920,6 +6922,7 @@ static ECRESULT CopyObject(ECSession *lpecSession,
 		AddChange(lpecSession, ulSyncId, sSourceKey, sParentSourceKey, ICS_MESSAGE_NEW);
 
 		// Hack, when lpInternalAttachmentStorage exist your are in a transaction!
+		ECCacheManager::cache_unique_lock cache_lock(*g_lpSessionManager->GetCacheManager(), fnevObjectModified);
 		if (lpInternalAttachmentStorage) {
 			// Deferred tproperties
 			er = ECTPropsPurge::AddDeferredUpdate(lpecSession, lpDatabase, ulDestFolderId, 0, ulNewObjectId);
@@ -6932,7 +6935,7 @@ static ECRESULT CopyObject(ECSession *lpecSession,
 				ec_log_err("CopyObject: attachmentstorage commit failed: %s (%x)", GetMAPIErrorMessage(er), er);
 				return er;
 			}
-			er = dtx.commit();
+			er = dtx.commit(std::make_unique<ECCacheManager::cache_unique_lock>(*g_lpSessionManager->GetCacheManager(), fnevObjectModified));
 			if (er != erSuccess) {
 				ec_log_err("CopyObject: database commit failed: %s (%x)", GetMAPIErrorMessage(er), er);
 				return er;
@@ -7134,7 +7137,8 @@ static ECRESULT CopyFolderObjects(struct soap *soap, ECSession *lpecSession,
 		ec_log_err("CopyFolderObjects: ECTPropsPurge::AddDeferredUpdate failed: %s (%x)", GetMAPIErrorMessage(er), er);
 		return er;
 	}
-	er = dtx.commit();
+
+	er = dtx.commit(std::make_unique<ECCacheManager::cache_unique_lock>(*gcache, fnevObjectModified));
 	if (er != erSuccess) {
 		ec_log_err("CopyFolderObjects: database commit failed: %s (%x)", GetMAPIErrorMessage(er), er);
 		return er;
@@ -7156,6 +7160,7 @@ static ECRESULT CopyFolderObjects(struct soap *soap, ECSession *lpecSession,
 		gcache->Update(fnevObjectModified, ulNewDestFolderId);
 		g_lpSessionManager->NotificationModified(MAPI_FOLDER, ulNewDestFolderId);
 	}
+	dtx.finalize();
 
 	gcache->GetParent(ulFolderFrom ,&ulGrandParent);
 	g_lpSessionManager->NotificationCopied(MAPI_FOLDER, ulNewDestFolderId, ulDestFolderId, ulFolderFrom, ulGrandParent);
@@ -7522,24 +7527,28 @@ SOAP_ENTRY_START(copyFolder, *result, const entryId &sEntryId,
 		ec_log_err("SOAP::copyFolder(): ECTPropsPurge::AddDeferredUpdate failed: %s (%x)", GetMAPIErrorMessage(er), er);
 		return er;
 	}
-	er = dtx.commit();
-	if(er != erSuccess) {
-		ec_log_err("SOAP::copyFolder(): database commit failed: %s (%x)", GetMAPIErrorMessage(er), er);
-		return er;
+	{
+		// Cache update for objects (at end of scope)
+		ECCacheManager::cache_unique_lock k(*gcache, fnevObjectModified);
+		er = dtx.commit();
+		if (er != erSuccess) {
+			ec_log_err("SOAP::copyFolder(): database commit failed: %s (%x)", GetMAPIErrorMessage(er), er);
+			return er;
+		}
+		// Cache update for objects
+		k->Update(fnevObjectModified, ulFolderId);
+		k->Update(fnevObjectModified, ulOldParent);
+		k->Update(fnevObjectModified, ulDestFolderId);
 	}
 
-	// Cache update for objects
-	gcache->Update(fnevObjectMoved, ulFolderId);
 	// Notify that the folder has moved
 	g_lpSessionManager->NotificationMoved(MAPI_FOLDER, ulFolderId, ulDestFolderId, ulOldParent);
 	// Update the old folder
-	gcache->Update(fnevObjectModified, ulOldParent);
 	g_lpSessionManager->UpdateTables(ECKeyTable::TABLE_ROW_DELETE, 0, ulOldParent, ulFolderId, MAPI_FOLDER);
 	g_lpSessionManager->NotificationModified(MAPI_FOLDER, ulOldParent);
 	// Update the old folder's parent
 	g_lpSessionManager->UpdateTables(ECKeyTable::TABLE_ROW_MODIFY, 0, ulOldGrandParent, ulOldParent, MAPI_FOLDER);
 	// Update the destination folder
-	gcache->Update(fnevObjectModified, ulDestFolderId);
 	g_lpSessionManager->UpdateTables(ECKeyTable::TABLE_ROW_ADD, 0, ulDestFolderId, ulFolderId, MAPI_FOLDER);
 	g_lpSessionManager->NotificationModified(MAPI_FOLDER, ulDestFolderId);
 	// Update the destination's parent
@@ -9200,6 +9209,7 @@ SOAP_ENTRY_START(importMessageFromStream, *result, unsigned int ulFlags,
 		ROLLBACK_ON_ERROR();
 		if (er == erSuccess)
 			return;
+		/* This is a rollback, so won't need cache_unique_lock protection. */
 		/* Remove from cache, else we can get sync issue, with missing messages offline. */
 		auto cache = lpecSession->GetSessionManager()->GetCacheManager();
 		cache->RemoveIndexData(ulObjectId);

@@ -1,6 +1,7 @@
 #ifndef KOPANO_DATABASE_HPP
 #define KOPANO_DATABASE_HPP 1
 
+#include <memory>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -75,6 +76,11 @@ class kt_completion {
 	virtual ECRESULT Rollback() = 0;
 };
 
+class kt_finalizer {
+	public:
+	virtual ~kt_finalizer() {}
+};
+
 /**
  * kd_trans is an explicit variable wrapper around a database transaction.
  * The transaction's scope is bounded by the scope of a certain kd_trans.
@@ -89,11 +95,14 @@ class _kc_export kd_trans final {
 	~kd_trans();
 	kd_trans &operator=(kd_trans &&);
 	ECRESULT commit();
+	ECRESULT commit(std::unique_ptr<kt_finalizer> &&);
 	ECRESULT rollback();
+	void finalize() { return m_finalizer.reset(); }
 
 	private:
 	kt_completion *m_db;
 	ECRESULT *m_result;
+	std::unique_ptr<kt_finalizer> m_finalizer;
 	bool m_done = false;
 };
 

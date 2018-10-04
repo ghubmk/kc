@@ -220,6 +220,19 @@ ECRESULT ECCacheManager::Update(unsigned int ulType, unsigned int ulObjId)
 	return erSuccess;
 }
 
+ECCacheManager::cache_unique_lock::cache_unique_lock(ECCacheManager &c, unsigned int mask) :
+	cmgr(c)
+{
+	if (mask & (fnevObjectModified | fnevObjectDeleted))
+		m_acl = decltype(m_acl)(c.m_hCacheMutex);
+	if (mask & (fnevObjectModified | fnevObjectDeleted | fnevObjectMoved))
+		m_cell = decltype(m_cell)(c.m_hCacheCellsMutex);
+	if (mask & (fnevObjectModified | fnevObjectDeleted | fnevObjectMoved))
+		m_object = decltype(m_object)(c.m_hCacheObjectMutex);
+	if (mask & (fnevObjectDeleted | fnevObjectMoved))
+		m_cell = decltype(m_cell)(c.m_hCacheStoreMutex);
+}
+
 ECRESULT ECCacheManager::UpdateUser(unsigned int ulUserId)
 {
 	std::string strExternId;
