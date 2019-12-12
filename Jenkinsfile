@@ -30,6 +30,7 @@ pipeline {
                     steps {
                         echo 'Checking..'
                         sh 'make check'
+                        sh './setupenv make -C tests/ check'
                     }
                 }
                 stage('Test (short)') {
