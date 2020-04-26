@@ -288,7 +288,7 @@ int ECS3Attachment::put_obj_cb(int bufferSize, char *buffer, void *cbdata)
  * @param ulCompressionLevel the compression level used to gzip the attachment data.
  */
 ECS3Attachment::ECS3Attachment(ECS3Config &config, ECDatabase *db) :
-	ECAttachmentStorage(db, config.m_comp), m_config(config)
+	ECAttachmentStorage(db), m_config(config)
 {}
 
 ECS3Attachment::~ECS3Attachment()

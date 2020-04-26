@@ -257,14 +257,9 @@ static std::string uas_data_to_ident(const void *data, size_t dsize)
 }
 
 // Generic Attachment storage
-ECAttachmentStorage::ECAttachmentStorage(ECDatabase *lpDatabase, unsigned int ulCompressionLevel) :
-	m_lpDatabase(lpDatabase), m_bFileCompression(ulCompressionLevel != 0)
-{
-	if (ulCompressionLevel > Z_BEST_COMPRESSION)
-		ulCompressionLevel = Z_BEST_COMPRESSION;
-
-	m_CompressionLevel = stringify(ulCompressionLevel);
-}
+ECAttachmentStorage::ECAttachmentStorage(ECDatabase *lpDatabase) :
+	m_lpDatabase(lpDatabase)
+{}
 
 static bool filesv1_extract_fanout(const char *s, unsigned int *x, unsigned int *y)
 {
@@ -323,6 +318,8 @@ ECRESULT ECFileAttachmentConfig::init(std::shared_ptr<ECConfig> config)
 	auto comp = config->GetSetting("attachment_compression");
 	m_basepath = dir;
 	m_complvl = (comp == nullptr) ? 0 : strtoul(comp, nullptr, 0);
+	if (m_complvl > Z_BEST_COMPRESSION)
+		m_complvl = Z_BEST_COMPRESSION;
 	m_sync_files = parseBool(sync_files_par);
 	return erSuccess;
 }
@@ -881,9 +878,8 @@ ECRESULT ECAttachmentStorage::GetSize(ULONG ulObjId, ULONG ulPropId, size_t *lpu
 
 // Attachment storage is in database
 ECDatabaseAttachment::ECDatabaseAttachment(ECDatabase *lpDatabase) :
-	ECAttachmentStorage(lpDatabase, 0)
-{
-}
+	ECAttachmentStorage(lpDatabase)
+{}
 
 /**
  * Load instance data using soap and return as blob.
@@ -1132,7 +1128,7 @@ ECRESULT ECDatabaseAttachment::Rollback()
 // Attachment storage is in separate files
 ECFileAttachment::ECFileAttachment(const ECFileAttachmentConfig &acf,
     ECDatabase *lpDatabase) :
-	ECAttachmentStorage(lpDatabase, acf.m_complvl), m_config(acf)
+	ECAttachmentStorage(lpDatabase), m_config(acf)
 {
 	if (m_config.m_sync_files) {
 		m_dirFd = open(m_config.m_basepath.c_str(), O_RDONLY | O_DIRECTORY);
@@ -1393,7 +1389,7 @@ ECRESULT ECFileAttachment::LoadAttachmentInstance(struct soap *soap,
     const ext_siid &ulInstanceId, size_t *lpiSize, unsigned char **lppData)
 {
 	ECRESULT er = erSuccess;
-	bool bCompressed = m_bFileCompression;
+	auto bCompressed = m_config.m_complvl > 0;
 
 	*lpiSize = 0;
 	auto filename = CreateAttachmentFilename(ulInstanceId, bCompressed);
@@ -1404,7 +1400,6 @@ ECRESULT ECFileAttachment::LoadAttachmentInstance(struct soap *soap,
 		return KCERR_NO_ACCESS;
 	} else if (fd < 0) {
 		/* Switch between compressed↔uncompressed, and try again. */
-		bCompressed = !bCompressed;
 		filename = CreateAttachmentFilename(ulInstanceId, bCompressed);
 		fd = open(filename.c_str(), O_RDONLY);
 		if (fd < 0) {
@@ -1601,7 +1596,9 @@ ECRESULT ECFileAttachment::save_instance_data(const std::string &filename, int f
 
 	// no need to remove the file, just overwrite it
 	if (compressAttachment) {
-		gz_ptr gzfp(fd, ("wb" + m_CompressionLevel).c_str());
+		char modebuf[6];
+		snprintf(modebuf, sizeof(modebuf), "wb%u", m_config.m_complvl);
+		gz_ptr gzfp(fd, modebuf);
 		if (!gzfp) {
 			ec_log_err("Unable to gzopen attachment \"%s\" for writing: %s", filename.c_str(), strerror(errno));
 			er = KCERR_DATABASE_ERROR;
@@ -1639,7 +1636,7 @@ exit:
 ECRESULT ECFileAttachment::SaveAttachmentInstance(ext_siid &instance,
     unsigned int propid, size_t dsize, unsigned char *data)
 {
-	auto comp = EvaluateCompressibleness(data, dsize) ? m_bFileCompression && dsize > 0 : false;
+	auto comp = EvaluateCompressibleness(data, dsize) ? m_config.m_complvl > 0 && dsize > 0 : false;
 	auto filename = CreateAttachmentFilename(instance, comp);
 	int fd = open(filename.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IWUSR | S_IRUSR | S_IRGRP);
 	if (fd < 0) {
@@ -1667,7 +1664,7 @@ ECRESULT ECFileAttachment::SaveAttachmentInstance(ext_siid &ulInstanceId,
     ULONG ulPropId, size_t iSize, ECSerializer *lpSource)
 {
 	ECRESULT er = erSuccess;
-	auto filename = CreateAttachmentFilename(ulInstanceId, m_bFileCompression);
+	auto filename = CreateAttachmentFilename(ulInstanceId, m_config.m_complvl > 0);
 	auto szBuffer = std::make_unique<unsigned char[]>(CHUNK_SIZE);
 	size_t iSizeLeft = iSize;
 
@@ -1679,8 +1676,10 @@ ECRESULT ECFileAttachment::SaveAttachmentInstance(ext_siid &ulInstanceId,
 	}
 
 	//no need to remove the file, just overwrite it
-	if (m_bFileCompression) {
-		gz_ptr gzfp(fd, ("wb" + m_CompressionLevel).c_str());
+	if (m_config.m_complvl > 0) {
+		char modebuf[6];
+		snprintf(modebuf, sizeof(modebuf), "wb%u", m_config.m_complvl);
+		gz_ptr gzfp(fd, modebuf);
 		if (!gzfp) {
 			ec_log_err("Unable to gzdopen attachment \"%s\" for writing: %s",
 				filename.c_str(), strerror(errno));
@@ -1809,14 +1808,13 @@ ECRESULT ECFileAttachment::DeleteAttachmentInstances(const std::list<ext_siid> &
  */
 ECRESULT ECFileAttachment::MarkAttachmentForDeletion(const ext_siid &ulInstanceId)
 {
-	auto filename = CreateAttachmentFilename(ulInstanceId, m_bFileCompression);
-
+	auto filename = CreateAttachmentFilename(ulInstanceId, m_config.m_complvl > 0);
 	if (rename(filename.c_str(), (filename + ".deleted").c_str()) == 0)
 		return erSuccess;
 
 	if (errno == ENOENT) {
 		// retry with another filename
-		filename = CreateAttachmentFilename(ulInstanceId, !m_bFileCompression);
+		filename = CreateAttachmentFilename(ulInstanceId, m_config.m_complvl == 0);
 		if (rename(filename.c_str(), (filename + ".deleted").c_str()) == 0)
 			return erSuccess;
 	}
@@ -1839,12 +1837,12 @@ ECRESULT ECFileAttachment::MarkAttachmentForDeletion(const ext_siid &ulInstanceI
  */
 ECRESULT ECFileAttachment::RestoreMarkedAttachment(const ext_siid &ulInstanceId)
 {
-	auto filename = CreateAttachmentFilename(ulInstanceId, m_bFileCompression);
+	auto filename = CreateAttachmentFilename(ulInstanceId, m_config.m_complvl > 0);
 	if (rename((filename + ".deleted").c_str(), filename.c_str()) == 0)
 		return erSuccess;
 	if (errno == ENOENT) {
 		// retry with another filename
-		filename = CreateAttachmentFilename(ulInstanceId, !m_bFileCompression);
+		filename = CreateAttachmentFilename(ulInstanceId, m_config.m_complvl == 0);
 		if (rename((filename + ".deleted").c_str(), filename.c_str()) == 0)
 			return erSuccess;
 	}
@@ -1865,13 +1863,12 @@ ECRESULT ECFileAttachment::RestoreMarkedAttachment(const ext_siid &ulInstanceId)
  */
 ECRESULT ECFileAttachment::DeleteMarkedAttachment(const ext_siid &ulInstanceId)
 {
-	auto filename = CreateAttachmentFilename(ulInstanceId, m_bFileCompression) + ".deleted";
-
+	auto filename = CreateAttachmentFilename(ulInstanceId, m_config.m_complvl > 0) + ".deleted";
 	if (unlink(filename.c_str()) == 0)
 		return erSuccess;
 
 	if (errno == ENOENT) {
-		filename = CreateAttachmentFilename(ulInstanceId, !m_bFileCompression) + ".deleted";
+		filename = CreateAttachmentFilename(ulInstanceId, m_config.m_complvl == 0) + ".deleted";
 		if (unlink(filename.c_str()) == 0)
 			return erSuccess;
 	}
@@ -1896,7 +1893,7 @@ ECRESULT ECFileAttachment::DeleteMarkedAttachment(const ext_siid &ulInstanceId)
 ECRESULT ECFileAttachment::DeleteAttachmentInstance(const ext_siid &ulInstanceId, bool bReplace)
 {
 	ECRESULT er = erSuccess;
-	auto filename = CreateAttachmentFilename(ulInstanceId, m_bFileCompression);
+	auto filename = CreateAttachmentFilename(ulInstanceId, m_config.m_complvl > 0);
 
 	if(m_bTransaction) {
 		if (!bReplace) {
@@ -1916,7 +1913,7 @@ ECRESULT ECFileAttachment::DeleteAttachmentInstance(const ext_siid &ulInstanceId
 	if (unlink(filename.c_str()) == 0)
 		return er;
 	if (errno == ENOENT) {
-		filename = CreateAttachmentFilename(ulInstanceId, !m_bFileCompression);
+		filename = CreateAttachmentFilename(ulInstanceId, m_config.m_complvl == 0);
 		if (unlink(filename.c_str()) == 0)
 			return erSuccess;
 	}
@@ -1962,8 +1959,8 @@ ECRESULT ECFileAttachment::GetSizeInstance(const ext_siid &ulInstanceId,
     size_t *lpulSize, bool *lpbCompressed)
 {
 	ECRESULT er = erSuccess;
-	auto filename = CreateAttachmentFilename(ulInstanceId, m_bFileCompression);
-	bool bCompressed = m_bFileCompression;
+	bool bCompressed = m_config.m_complvl > 0;
+	auto filename = CreateAttachmentFilename(ulInstanceId, bCompressed);
 	struct stat st;
 
 	/*
@@ -1978,9 +1975,8 @@ ECRESULT ECFileAttachment::GetSizeInstance(const ext_siid &ulInstanceId,
 	 */
 	int fd = open(filename.c_str(), O_RDONLY);
 	if (fd == -1) {
-		filename = CreateAttachmentFilename(ulInstanceId, !m_bFileCompression);
-		bCompressed = !m_bFileCompression;
-
+		bCompressed = !bCompressed;
+		filename = CreateAttachmentFilename(ulInstanceId, bCompressed);
 		fd = open(filename.c_str(), O_RDONLY);
 	}
 

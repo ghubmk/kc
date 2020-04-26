@@ -39,7 +39,7 @@ class ECAttachmentConfig {
 
 class ECAttachmentStorage : public kt_completion {
 public:
-	ECAttachmentStorage(ECDatabase *lpDatabase, unsigned int ulCompressionLevel);
+	ECAttachmentStorage(ECDatabase *lpDatabase);
 	virtual ~ECAttachmentStorage() = default;
 
 	/* Single Instance Attachment wrappers (should not be overridden by subclasses) */
@@ -82,8 +82,6 @@ private:
 
 protected:
 	ECDatabase *m_lpDatabase;
-	bool m_bFileCompression;
-	std::string m_CompressionLevel;
 };
 
 class KC_EXPORT_DYCAST ECDatabaseAttachment final :
