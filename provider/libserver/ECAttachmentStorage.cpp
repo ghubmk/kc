@@ -76,14 +76,16 @@ class ECFileAttachmentConfig : public ECAttachmentConfig {
 	virtual ECAttachmentStorage *new_handle(ECDatabase *) override;
 
 	protected:
-	std::string m_dir;
-	unsigned int m_complvl, m_l1 = 0, m_l2 = 0;
+	std::string m_basepath;
+	unsigned int m_complvl = 0, m_l1 = 0, m_l2 = 0;
 	bool m_sync_files;
+
+	friend class ECFileAttachment;
 };
 
 class ECFileAttachment : public ECAttachmentStorage {
 	public:
-	ECFileAttachment(ECDatabase *, const std::string &basepath, unsigned int compr_lvl, unsigned int l1, unsigned int l2, bool sync);
+	ECFileAttachment(const ECFileAttachmentConfig &, ECDatabase *);
 
 	protected:
 	virtual ~ECFileAttachment();
@@ -103,15 +105,13 @@ class ECFileAttachment : public ECAttachmentStorage {
 	ECRESULT load_instance_u(struct soap *, int &fd, const std::string &filename, size_t *size, unsigned char **data);
 	ECRESULT save_instance_data(const std::string &filename, int fd, unsigned int propid, size_t z, unsigned char *data, bool comp);
 
+	const ECFileAttachmentConfig &m_config;
 	size_t attachment_size_safety_limit;
-	bool force_changes_to_disk;
 
 	/* helper functions for transacted deletion */
 	bool VerifyInstanceSize(const ext_siid &, size_t expected_size, const std::string &filename);
 	void give_filesize_hint(const int fd, const off_t len);
 	void my_readahead(int fd);
-
-	std::string m_basepath;
 
 	private:
 	std::string CreateAttachmentFilename(const ext_siid &, bool compressed);
@@ -138,7 +138,7 @@ class ECFileAttachmentConfig2 final : public ECFileAttachmentConfig {
 
 class ECFileAttachment2 final : public ECFileAttachment {
 	public:
-	ECFileAttachment2(ECFileAttachmentConfig2 &, ECDatabase *, const std::string &basepath, bool sync);
+	ECFileAttachment2(const ECFileAttachmentConfig2 &, ECDatabase *);
 
 	protected:
 	virtual ECRESULT SaveAttachmentInstance(ext_siid &, ULONG propid, size_t, unsigned char *) override;
@@ -147,7 +147,7 @@ class ECFileAttachment2 final : public ECFileAttachment {
 	virtual ECRESULT DeleteAttachmentInstance(const ext_siid &, bool replace) override;
 	virtual ECRESULT LoadAttachmentInstance(struct soap *, const ext_siid &, size_t *, unsigned char **) override;
 	virtual ECRESULT LoadAttachmentInstance(const ext_siid &, size_t *, ECSerializer *) override;
-	ECFileAttachmentConfig2 &m_config;
+	const ECFileAttachmentConfig2 &m_config;
 };
 
 struct at2_layout {
@@ -314,22 +314,22 @@ ECAttachmentStorage *ECDatabaseAttachmentConfig::new_handle(ECDatabase *db)
 ECRESULT ECFileAttachmentConfig::init(std::shared_ptr<ECConfig> config)
 {
 	auto dir = config->GetSetting("attachment_path");
-	if (dir == nullptr) {
+	if (dir == nullptr || *dir != '/') {
 		ec_log_err("No attachment_path set despite attachment_storage=files.");
 		return KCERR_CALL_FAILED;
 	}
 	filesv1_extract_fanout(config->GetSetting("attachment_storage"), &m_l1, &m_l2);
 	auto sync_files_par = config->GetSetting("attachment_files_fsync");
 	auto comp = config->GetSetting("attachment_compression");
-	m_dir = dir;
+	m_basepath = dir;
 	m_complvl = (comp == nullptr) ? 0 : strtoul(comp, nullptr, 0);
-	m_sync_files = sync_files_par == nullptr || strcasecmp(sync_files_par, "yes") == 0;
+	m_sync_files = parseBool(sync_files_par);
 	return erSuccess;
 }
 
 ECAttachmentStorage *ECFileAttachmentConfig::new_handle(ECDatabase *db)
 {
-	return new(std::nothrow) ECFileAttachment(db, m_dir, m_complvl, m_l1, m_l2, m_sync_files);
+	return new(std::nothrow) ECFileAttachment(*this, db);
 }
 
 /**
@@ -1130,19 +1130,15 @@ ECRESULT ECDatabaseAttachment::Rollback()
 }
 
 // Attachment storage is in separate files
-ECFileAttachment::ECFileAttachment(ECDatabase *lpDatabase,
-    const std::string &basepath, unsigned int ulCompressionLevel,
-    unsigned int l1, unsigned int l2, bool sync_to_disk) :
-	ECAttachmentStorage(lpDatabase, ulCompressionLevel),
-	m_basepath(basepath), m_l1(l1), m_l2(l2)
+ECFileAttachment::ECFileAttachment(const ECFileAttachmentConfig &acf,
+    ECDatabase *lpDatabase) :
+	ECAttachmentStorage(lpDatabase, acf.m_complvl), m_config(acf)
 {
-	if (m_basepath.empty())
-		m_basepath = "/var/lib/kopano";
-	force_changes_to_disk = sync_to_disk;
-	if (sync_to_disk) {
-		m_dirFd = open(m_basepath.c_str(), O_RDONLY | O_DIRECTORY);
+	if (m_config.m_sync_files) {
+		m_dirFd = open(m_config.m_basepath.c_str(), O_RDONLY | O_DIRECTORY);
 		if (m_dirFd == -1)
-			ec_log_warn("Problem opening directory file \"%s\": %s - attachment storage atomicity not guaranteed", m_basepath.c_str(), strerror(errno));
+			ec_log_warn("Problem opening directory file \"%s\": %s - attachment storage atomicity not guaranteed",
+				m_config.m_basepath.c_str(), strerror(errno));
 	}
 	attachment_size_safety_limit = 512 * 1024 * 1024; // FIXME make configurable
 }
@@ -1726,8 +1722,7 @@ ECRESULT ECFileAttachment::SaveAttachmentInstance(ext_siid &ulInstanceId,
 					ec_log_err("gzflush failed: stdio says: %s", strerror(saved_errno));
 				er = KCERR_DATABASE_ERROR;
 			}
-
-			if (force_changes_to_disk && !force_buffers_to_disk(fd)) {
+			if (m_config.m_sync_files && !force_buffers_to_disk(fd)) {
 				ec_log_warn("Problem syncing file \"%s\": %s", filename.c_str(), strerror(errno));
 				er = KCERR_DATABASE_ERROR;
 			}
@@ -1763,7 +1758,7 @@ ECRESULT ECFileAttachment::SaveAttachmentInstance(ext_siid &ulInstanceId,
 			iSizeLeft -= iChunkSize;
 		}
 
-		if (er == erSuccess && force_changes_to_disk && !force_buffers_to_disk(fd)) {
+		if (er == erSuccess && m_config.m_sync_files && !force_buffers_to_disk(fd)) {
 			ec_log_warn("Problem syncing file \"%s\": %s", filename.c_str(), strerror(errno));
 			er = KCERR_DATABASE_ERROR;
 		}
@@ -1946,7 +1941,8 @@ std::string ECFileAttachment::CreateAttachmentFilename(const ext_siid &esid, boo
 {
 	unsigned int l1 = esid.siid % m_l1;
 	unsigned int l2 = (esid.siid / m_l1) % m_l2;
-	auto filename = m_basepath + PATH_SEPARATOR + stringify(l1) + PATH_SEPARATOR + stringify(l2) + PATH_SEPARATOR + stringify(esid.siid);
+	auto filename = m_config.m_basepath + '/' + stringify(l1) + '/' +
+	                stringify(l2) + '/' + stringify(esid.siid);
 	if (bCompressed)
 		filename += ".gz";
 
@@ -2126,12 +2122,12 @@ ECFileAttachmentConfig2::ECFileAttachmentConfig2(const GUID &g) :
 
 ECAttachmentStorage *ECFileAttachmentConfig2::new_handle(ECDatabase *db)
 {
-	return new(std::nothrow) ECFileAttachment2(*this, db, m_dir, m_sync_files);
+	return new(std::nothrow) ECFileAttachment2(*this, db);
 }
 
-ECFileAttachment2::ECFileAttachment2(ECFileAttachmentConfig2 &acf,
-    ECDatabase *db, const std::string &basepath, bool sync) :
-	ECFileAttachment(db, basepath, 0, 0, 0, sync), m_config(acf)
+ECFileAttachment2::ECFileAttachment2(const ECFileAttachmentConfig2 &acf,
+    ECDatabase *db) :
+	ECFileAttachment(acf, db), m_config(acf)
 {}
 
 ECRESULT ECFileAttachment2::SaveAttachmentInstance(ext_siid &instance,
@@ -2139,8 +2135,8 @@ ECRESULT ECFileAttachment2::SaveAttachmentInstance(ext_siid &instance,
 {
 	instance.filename = uas_data_to_ident(data, dsize);
 	bool uploaded = false;
-	auto sl = uas_server_layout(m_basepath, m_config.m_server_guid, instance);
-	auto hl = uas_hash_layout(m_basepath, m_config.m_server_guid, instance);
+	auto sl = uas_server_layout(m_config.m_basepath, m_config.m_server_guid, instance);
+	auto hl = uas_hash_layout(m_config.m_basepath, m_config.m_server_guid, instance);
 	int retries  = 3;
 	auto cleanup = make_scope_success([&]() {
 		if (uploaded)
@@ -2229,7 +2225,7 @@ ECRESULT ECFileAttachment2::SaveAttachmentInstance(ext_siid &instance,
 ECRESULT ECFileAttachment2::SaveAttachmentInstance(ext_siid &instance,
     ULONG propid, size_t dsize, ECSerializer *src)
 {
-	auto sl = uas_server_layout(m_basepath, m_config.m_server_guid, instance);
+	auto sl = uas_server_layout(m_config.m_basepath, m_config.m_server_guid, instance);
 	decltype(sl) hl;
 
 	/*
@@ -2279,7 +2275,7 @@ ECRESULT ECFileAttachment2::SaveAttachmentInstance(ext_siid &instance,
 	unsigned char shasum[SHA256_DIGEST_LENGTH];
 	SHA256_Final(shasum, &shactx);
 	instance.filename = uas_md_to_ident(std::string(reinterpret_cast<char *>(shasum), sizeof(shasum)));
-	hl = uas_hash_layout(m_basepath, m_config.m_server_guid, instance);
+	hl = uas_hash_layout(m_config.m_basepath, m_config.m_server_guid, instance);
 	fd = open(sl.holder_ref.c_str(), O_WRONLY | O_CREAT, S_IRWUG);
 	if (fd < 0) {
 		ec_log_err("K-1288: open \"%s\": %s", sl.holder_ref.c_str(), strerror(errno));
@@ -2331,7 +2327,7 @@ ECRESULT ECFileAttachment2::SaveAttachmentInstance(ext_siid &instance,
 ECRESULT ECFileAttachment2::GetSizeInstance(const ext_siid &inst,
     size_t *size, bool *comp)
 {
-	auto content_file = m_basepath + "/" + inst.filename + "/content";
+	auto content_file = m_config.m_basepath + '/' + inst.filename + "/content";
 	struct stat sb;
 	auto ret = stat(content_file.c_str(), &sb);
 	if (ret != 0)
@@ -2345,7 +2341,7 @@ ECRESULT ECFileAttachment2::GetSizeInstance(const ext_siid &inst,
 
 ECRESULT ECFileAttachment2::DeleteAttachmentInstance(const ext_siid &i, bool replace)
 {
-	auto hl = uas_hash_layout(m_basepath, m_config.m_server_guid, i);
+	auto hl = uas_hash_layout(m_config.m_basepath, m_config.m_server_guid, i);
 	auto ret = unlink(hl.holder_ref.c_str());
 	if (ret != 0) {
 		if (errno == ENOENT) {
@@ -2371,7 +2367,7 @@ ECRESULT ECFileAttachment2::LoadAttachmentInstance(struct soap *soap,
     const ext_siid &instance, size_t *dsize, unsigned char **data)
 {
 	*dsize = 0;
-	auto ctf = m_basepath + "/" + instance.filename.c_str() + "/content";
+	auto ctf = m_config.m_basepath + '/' + instance.filename.c_str() + "/content";
 	int fd = open(ctf.c_str(), O_RDONLY);
 	if (fd < 0) {
 		ec_log_err("K-1286: open \"%s\": %s", ctf.c_str(), strerror(errno));
@@ -2407,7 +2403,7 @@ ECRESULT ECFileAttachment2::LoadAttachmentInstance(const ext_siid &instance,
     size_t *dsize, ECSerializer *sink)
 {
 	*dsize = 0;
-	auto ctf = m_basepath + "/" + instance.filename.c_str() + "/content";
+	auto ctf = m_config.m_basepath + '/' + instance.filename.c_str() + "/content";
 	int fd = open(ctf.c_str(), O_RDONLY);
 	if (fd < 0 && errno == ENOENT) {
 		return KCERR_NOT_FOUND;
