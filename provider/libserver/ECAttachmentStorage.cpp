@@ -608,7 +608,7 @@ ECRESULT ECAttachmentStorage::SaveAttachment(ULONG ulObjId, ULONG ulPropId, bool
 		 * Call DeleteAttachment to decrease the refcount
 		 * and optionally delete the original attachment.
 		 */
-		auto er = DeleteAttachment(ulObjId, ulPropId, true);
+		auto er = DeleteAttachment(ulObjId, ulPropId);
 		if (er != erSuccess)
 			return er;
 	}
@@ -654,7 +654,7 @@ ECRESULT ECAttachmentStorage::SaveAttachment(ULONG ulObjId, ULONG ulPropId, bool
 		 * Call DeleteAttachment to decrease the refcount
 		 * and optionally delete the original attachment.
 		 */
-		auto er = DeleteAttachment(ulObjId, ulPropId, true);
+		auto er = DeleteAttachment(ulObjId, ulPropId);
 		if (er != erSuccess)
 			return er;
 	}
@@ -705,7 +705,7 @@ ECRESULT ECAttachmentStorage::SaveAttachment(ULONG ulObjId, ULONG ulPropId, bool
 		    ulOldAttachId.siid == ulInstanceId)
 			// Nothing to do, we already have that instance ID
 			return erSuccess;
-		auto er = DeleteAttachment(ulObjId, ulPropId, true);
+		auto er = DeleteAttachment(ulObjId, ulPropId);
 		if (er != erSuccess)
 			return er;
 	}
@@ -804,11 +804,10 @@ ECRESULT ECAttachmentStorage::DeleteAttachments(const std::list<ULONG> &lstDelet
  *
  * @param[in] ulObjId HierarchyID of object to delete single instance property from
  * @param[in] ulPropId Property of object to remove
- * @param[in] bReplace Flag used for transitions in ECFileStorage
  *
  * @return Kopano error code
  */
-ECRESULT ECAttachmentStorage::DeleteAttachment(ULONG ulObjId, ULONG ulPropId, bool bReplace)
+ECRESULT ECAttachmentStorage::DeleteAttachment(unsigned int ulObjId, unsigned int ulPropId)
 {
 	ext_siid ulInstanceId;
 	bool bOrphan = false;
@@ -840,7 +839,7 @@ ECRESULT ECAttachmentStorage::DeleteAttachment(ULONG ulObjId, ULONG ulPropId, bo
 	 */
 	if (IsOrphanedSingleInstance(ulInstanceId, &bOrphan) != erSuccess || !bOrphan)
 		return erSuccess;
-	return DeleteAttachmentInstance(ulInstanceId, bReplace);
+	return DeleteAttachmentInstance(ulInstanceId, true);
 }
 
 /**
