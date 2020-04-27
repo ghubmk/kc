@@ -73,12 +73,11 @@ class ECDatabaseAttachmentConfig final : public ECAttachmentConfig {
 class ECFileAttachmentConfig : public ECAttachmentConfig {
 	public:
 	virtual ECRESULT init(std::shared_ptr<ECConfig>) override;
-	virtual ECAttachmentStorage *new_handle(ECDatabase *) override;
 
 	protected:
 	std::string m_basepath;
-	unsigned int m_complvl = 0, m_l1 = 0, m_l2 = 0;
-	bool m_sync_files;
+	unsigned int m_complvl = 0;
+	bool m_sync_files = false;
 
 	friend class ECFileAttachment;
 };
@@ -89,40 +88,52 @@ class ECFileAttachment : public ECAttachmentStorage {
 
 	protected:
 	virtual ~ECFileAttachment();
+	virtual ECRESULT DeleteAttachmentInstances(const std::list<ext_siid> &, bool replace) override;
+	ECRESULT save_instance_data(const std::string &filename, int fd, unsigned int propid, size_t z, unsigned char *data, bool comp);
+	void give_filesize_hint(const int fd, const off_t len);
+	void my_readahead(int fd);
 
-	/* Single Instance Attachment handlers */
+	const ECFileAttachmentConfig &m_config;
+	size_t attachment_size_safety_limit;
+	int m_dirFd = -1;
+	bool m_bTransaction = false;
+	std::set<ext_siid> m_setNewAttachment, m_setDeletedAttachment, m_setMarkedAttachment;
+};
+
+class ECFileAttachmentConfig1 : public ECFileAttachmentConfig {
+	public:
+	virtual ECRESULT init(std::shared_ptr<ECConfig>) override;
+	virtual ECAttachmentStorage *new_handle(ECDatabase *) override;
+
+	protected:
+	unsigned int m_l1 = 0, m_l2 = 0;
+
+	friend class ECFileAttachment1;
+};
+
+class ECFileAttachment1 final : public ECFileAttachment {
+	public:
+	ECFileAttachment1(const ECFileAttachmentConfig1 &, ECDatabase *);
 	virtual ECRESULT LoadAttachmentInstance(struct soap *, const ext_siid &, size_t *, unsigned char **) override;
 	virtual ECRESULT LoadAttachmentInstance(const ext_siid &, size_t *, ECSerializer *) override;
 	virtual ECRESULT SaveAttachmentInstance(ext_siid &, ULONG propid, size_t, unsigned char *) override;
 	virtual ECRESULT SaveAttachmentInstance(ext_siid &, ULONG propid, size_t, ECSerializer *) override;
-	virtual ECRESULT DeleteAttachmentInstances(const std::list<ext_siid> &, bool replace) override;
 	virtual ECRESULT DeleteAttachmentInstance(const ext_siid &, bool replace) override;
 	virtual ECRESULT GetSizeInstance(const ext_siid &, size_t *size, bool *compr = nullptr) override;
 	virtual kd_trans Begin(ECRESULT &) override;
 	virtual ECRESULT Commit() override;
 	virtual ECRESULT Rollback() override;
-	ECRESULT load_instance_z(struct soap *, const ext_siid &instance_id, int &fd, const std::string &filename, size_t *size, unsigned char **data);
-	ECRESULT load_instance_u(struct soap *, int &fd, const std::string &filename, size_t *size, unsigned char **data);
-	ECRESULT save_instance_data(const std::string &filename, int fd, unsigned int propid, size_t z, unsigned char *data, bool comp);
-
-	const ECFileAttachmentConfig &m_config;
-	size_t attachment_size_safety_limit;
-
-	/* helper functions for transacted deletion */
-	bool VerifyInstanceSize(const ext_siid &, size_t expected_size, const std::string &filename);
-	void give_filesize_hint(const int fd, const off_t len);
-	void my_readahead(int fd);
 
 	private:
-	std::string CreateAttachmentFilename(const ext_siid &, bool compressed);
 	ECRESULT MarkAttachmentForDeletion(const ext_siid &);
 	ECRESULT DeleteMarkedAttachment(const ext_siid &);
 	ECRESULT RestoreMarkedAttachment(const ext_siid &);
+	ECRESULT load_instance_z(struct soap *, const ext_siid &instance_id, int &fd, const std::string &filename, size_t *size, unsigned char **data);
+	ECRESULT load_instance_u(struct soap *, int &fd, const std::string &filename, size_t *size, unsigned char **data);
+	bool VerifyInstanceSize(const ext_siid &, size_t expected_size, const std::string &filename);
+	std::string CreateAttachmentFilename(const ext_siid &, bool compressed);
 
-	int m_dirFd = -1;
-	unsigned int m_l1 = 0, m_l2 = 0;
-	bool m_bTransaction = false;
-	std::set<ext_siid> m_setNewAttachment, m_setDeletedAttachment, m_setMarkedAttachment;
+	const ECFileAttachmentConfig1 &m_config;
 };
 
 class ECFileAttachmentConfig2 final : public ECFileAttachmentConfig {
@@ -147,6 +158,10 @@ class ECFileAttachment2 final : public ECFileAttachment {
 	virtual ECRESULT DeleteAttachmentInstance(const ext_siid &, bool replace) override;
 	virtual ECRESULT LoadAttachmentInstance(struct soap *, const ext_siid &, size_t *, unsigned char **) override;
 	virtual ECRESULT LoadAttachmentInstance(const ext_siid &, size_t *, ECSerializer *) override;
+	virtual kd_trans Begin(ECRESULT &) override;
+	virtual ECRESULT Commit() override;
+	virtual ECRESULT Rollback() override;
+
 	const ECFileAttachmentConfig2 &m_config;
 };
 
@@ -278,7 +293,7 @@ ECRESULT ECAttachmentConfig::create(const GUID &sguid,
 	if (type == nullptr || strcmp(type, "database") == 0) {
 		a.reset(new(std::nothrow) ECDatabaseAttachmentConfig);
 	} else if (filesv1_extract_fanout(type, &ignore, &ignore)) {
-		a.reset(new(std::nothrow) ECFileAttachmentConfig);
+		a.reset(new(std::nothrow) ECFileAttachmentConfig1);
 	} else if (strcmp(type, "files_v2") == 0) {
 		a.reset(new(std::nothrow) ECFileAttachmentConfig2(sguid));
 	} else if (strcmp(type, "s3") == 0) {
@@ -313,20 +328,10 @@ ECRESULT ECFileAttachmentConfig::init(std::shared_ptr<ECConfig> config)
 		ec_log_err("No attachment_path set despite attachment_storage=files.");
 		return KCERR_CALL_FAILED;
 	}
-	filesv1_extract_fanout(config->GetSetting("attachment_storage"), &m_l1, &m_l2);
 	auto sync_files_par = config->GetSetting("attachment_files_fsync");
-	auto comp = config->GetSetting("attachment_compression");
 	m_basepath = dir;
-	m_complvl = (comp == nullptr) ? 0 : strtoul(comp, nullptr, 0);
-	if (m_complvl > Z_BEST_COMPRESSION)
-		m_complvl = Z_BEST_COMPRESSION;
 	m_sync_files = parseBool(sync_files_par);
 	return erSuccess;
-}
-
-ECAttachmentStorage *ECFileAttachmentConfig::new_handle(ECDatabase *db)
-{
-	return new(std::nothrow) ECFileAttachment(*this, db);
 }
 
 /**
@@ -1134,6 +1139,27 @@ ECFileAttachment::~ECFileAttachment()
 		assert(false);
 }
 
+ECRESULT ECFileAttachmentConfig1::init(std::shared_ptr<ECConfig> config)
+{
+	auto ret = ECFileAttachmentConfig::init(config);
+	if (ret != erSuccess)
+		return ret;
+	filesv1_extract_fanout(config->GetSetting("attachment_storage"), &m_l1, &m_l2);
+	auto comp = config->GetSetting("attachment_compression");
+	m_complvl = (comp == nullptr) ? 0 : strtoul(comp, nullptr, 0);
+	return erSuccess;
+}
+
+ECAttachmentStorage *ECFileAttachmentConfig1::new_handle(ECDatabase *db)
+{
+	return new(std::nothrow) ECFileAttachment1(*this, db);
+}
+
+ECFileAttachment1::ECFileAttachment1(const ECFileAttachmentConfig1 &acf,
+    ECDatabase *db) :
+	ECFileAttachment(acf, db), m_config(acf)
+{}
+
 /**
  * @uclen:	number of uncompressed bytes that is requested
  */
@@ -1225,7 +1251,7 @@ static ssize_t gzwrite_retry(gzFile fp, const void *data, size_t uclen)
 	return wrote_total;
 }
 
-bool ECFileAttachment::VerifyInstanceSize(const ext_siid &instanceId,
+bool ECFileAttachment1::VerifyInstanceSize(const ext_siid &instanceId,
     const size_t expectedSize, const std::string &filename)
 {
 	bool bCompressed = false;
@@ -1245,7 +1271,7 @@ bool ECFileAttachment::VerifyInstanceSize(const ext_siid &instanceId,
 	return true;
 }
 
-ECRESULT ECFileAttachment::load_instance_z(struct soap *soap,
+ECRESULT ECFileAttachment1::load_instance_z(struct soap *soap,
     const ext_siid &ulInstanceId, int &fd, const std::string &filename,
     size_t *lpiSize, unsigned char **lppData)
 {
@@ -1315,7 +1341,7 @@ ECRESULT ECFileAttachment::load_instance_z(struct soap *soap,
 	return erSuccess;
 }
 
-ECRESULT ECFileAttachment::load_instance_u(struct soap *soap, int &fd,
+ECRESULT ECFileAttachment1::load_instance_u(struct soap *soap, int &fd,
     const std::string &filename, size_t *lpiSize, unsigned char **lppData)
 {
 	ssize_t lReadSize = 0;
@@ -1372,7 +1398,7 @@ ECRESULT ECFileAttachment::load_instance_u(struct soap *soap, int &fd,
  *
  * @return Kopano error code
  */
-ECRESULT ECFileAttachment::LoadAttachmentInstance(struct soap *soap,
+ECRESULT ECFileAttachment1::LoadAttachmentInstance(struct soap *soap,
     const ext_siid &ulInstanceId, size_t *lpiSize, unsigned char **lppData)
 {
 	ECRESULT er = erSuccess;
@@ -1413,7 +1439,7 @@ ECRESULT ECFileAttachment::LoadAttachmentInstance(struct soap *soap,
  *
  * @return
  */
-ECRESULT ECFileAttachment::LoadAttachmentInstance(const ext_siid &ulInstanceId,
+ECRESULT ECFileAttachment1::LoadAttachmentInstance(const ext_siid &ulInstanceId,
     size_t *lpiSize, ECSerializer *lpSink)
 {
 	ECRESULT er = erSuccess;
@@ -1620,7 +1646,7 @@ exit:
 	return er;
 }
 
-ECRESULT ECFileAttachment::SaveAttachmentInstance(ext_siid &instance,
+ECRESULT ECFileAttachment1::SaveAttachmentInstance(ext_siid &instance,
     unsigned int propid, size_t dsize, unsigned char *data)
 {
 	auto comp = EvaluateCompressibleness(data, dsize) ? m_config.m_complvl > 0 && dsize > 0 : false;
@@ -1647,7 +1673,7 @@ ECRESULT ECFileAttachment::SaveAttachmentInstance(ext_siid &instance,
  *
  * @return Kopano error code
  */
-ECRESULT ECFileAttachment::SaveAttachmentInstance(ext_siid &ulInstanceId,
+ECRESULT ECFileAttachment1::SaveAttachmentInstance(ext_siid &ulInstanceId,
     ULONG ulPropId, size_t iSize, ECSerializer *lpSource)
 {
 	ECRESULT er = erSuccess;
@@ -1793,7 +1819,7 @@ ECRESULT ECFileAttachment::DeleteAttachmentInstances(const std::list<ext_siid> &
  *
  * @return Kopano error code
  */
-ECRESULT ECFileAttachment::MarkAttachmentForDeletion(const ext_siid &ulInstanceId)
+ECRESULT ECFileAttachment1::MarkAttachmentForDeletion(const ext_siid &ulInstanceId)
 {
 	auto filename = CreateAttachmentFilename(ulInstanceId, m_config.m_complvl > 0);
 	if (rename(filename.c_str(), (filename + ".deleted").c_str()) == 0)
@@ -1822,7 +1848,7 @@ ECRESULT ECFileAttachment::MarkAttachmentForDeletion(const ext_siid &ulInstanceI
  *
  * @return Kopano error code
  */
-ECRESULT ECFileAttachment::RestoreMarkedAttachment(const ext_siid &ulInstanceId)
+ECRESULT ECFileAttachment1::RestoreMarkedAttachment(const ext_siid &ulInstanceId)
 {
 	auto filename = CreateAttachmentFilename(ulInstanceId, m_config.m_complvl > 0);
 	if (rename((filename + ".deleted").c_str(), filename.c_str()) == 0)
@@ -1848,7 +1874,7 @@ ECRESULT ECFileAttachment::RestoreMarkedAttachment(const ext_siid &ulInstanceId)
  *
  * @return Kopano error code
  */
-ECRESULT ECFileAttachment::DeleteMarkedAttachment(const ext_siid &ulInstanceId)
+ECRESULT ECFileAttachment1::DeleteMarkedAttachment(const ext_siid &ulInstanceId)
 {
 	auto filename = CreateAttachmentFilename(ulInstanceId, m_config.m_complvl > 0) + ".deleted";
 	if (unlink(filename.c_str()) == 0)
@@ -1877,7 +1903,7 @@ ECRESULT ECFileAttachment::DeleteMarkedAttachment(const ext_siid &ulInstanceId)
  *
  * @return
  */
-ECRESULT ECFileAttachment::DeleteAttachmentInstance(const ext_siid &ulInstanceId, bool bReplace)
+ECRESULT ECFileAttachment1::DeleteAttachmentInstance(const ext_siid &ulInstanceId, bool bReplace)
 {
 	ECRESULT er = erSuccess;
 	auto filename = CreateAttachmentFilename(ulInstanceId, m_config.m_complvl > 0);
@@ -1921,10 +1947,10 @@ ECRESULT ECFileAttachment::DeleteAttachmentInstance(const ext_siid &ulInstanceId
  *
  * @return Kopano error code
  */
-std::string ECFileAttachment::CreateAttachmentFilename(const ext_siid &esid, bool bCompressed)
+std::string ECFileAttachment1::CreateAttachmentFilename(const ext_siid &esid, bool bCompressed)
 {
-	unsigned int l1 = esid.siid % m_l1;
-	unsigned int l2 = (esid.siid / m_l1) % m_l2;
+	unsigned int l1 = esid.siid % m_config.m_l1;
+	unsigned int l2 = (esid.siid / m_config.m_l1) % m_config.m_l2;
 	auto filename = m_config.m_basepath + '/' + stringify(l1) + '/' +
 	                stringify(l2) + '/' + stringify(esid.siid);
 	if (bCompressed)
@@ -1942,7 +1968,7 @@ std::string ECFileAttachment::CreateAttachmentFilename(const ext_siid &esid, boo
  *
  * @return Kopano error code
  */
-ECRESULT ECFileAttachment::GetSizeInstance(const ext_siid &ulInstanceId,
+ECRESULT ECFileAttachment1::GetSizeInstance(const ext_siid &ulInstanceId,
     size_t *lpulSize, bool *lpbCompressed)
 {
 	ECRESULT er = erSuccess;
@@ -2019,7 +2045,7 @@ exit:
 	return er;
 }
 
-kd_trans ECFileAttachment::Begin(ECRESULT &trigger)
+kd_trans ECFileAttachment1::Begin(ECRESULT &trigger)
 {
 	if(m_bTransaction) {
 		// Possible a duplicate begin call, don't destroy the data in production
@@ -2035,7 +2061,7 @@ kd_trans ECFileAttachment::Begin(ECRESULT &trigger)
 	return kd_trans(*this, trigger);
 }
 
-ECRESULT ECFileAttachment::Commit()
+ECRESULT ECFileAttachment1::Commit()
 {
 	ECRESULT er = erSuccess;
 	bool bError = false;
@@ -2067,7 +2093,7 @@ ECRESULT ECFileAttachment::Commit()
 	return er;
 }
 
-ECRESULT ECFileAttachment::Rollback()
+ECRESULT ECFileAttachment1::Rollback()
 {
 	bool bError = false;
 
@@ -2412,5 +2438,9 @@ ECRESULT ECFileAttachment2::LoadAttachmentInstance(const ext_siid &instance,
 	close(fd);
 	return erSuccess;
 }
+
+kd_trans ECFileAttachment2::Begin(ECRESULT &r) { return kd_trans(*this, r); }
+ECRESULT ECFileAttachment2::Commit() { return erSuccess; }
+ECRESULT ECFileAttachment2::Rollback() { return erSuccess; }
 
 } /* namespace */
