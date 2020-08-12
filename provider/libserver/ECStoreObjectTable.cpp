@@ -4,6 +4,7 @@
  */
 #include <algorithm>
 #include <list>
+#include <mutex>
 #include <set>
 #include <string>
 #include <utility>
@@ -144,7 +145,7 @@ ECRESULT ECStoreObjectTable::GetColumnsAll(ECListInt* lplstProps)
 
 	//List always empty
 	lplstProps->clear();
-	ulock_rec biglock(m_hLock);
+	std::unique_lock biglock(m_hLock);
 	bool mo_has_content = !mapObjects.empty();
 	biglock.unlock();
 
@@ -939,7 +940,7 @@ ECRESULT ECStoreObjectTable::GetMVRowCount(std::list<unsigned int> &&ids,
 	// scan for MV-props and generate the base query
 	std::string query = "SELECT h.id, count(h.id) FROM hierarchy as h";
 
-	ulock_rec biglock(m_hLock);
+	std::unique_lock biglock(m_hLock);
 
 	for (auto tag : m_listMVSortCols) {
 		auto colname = "col" + stringify(tag);
@@ -1063,7 +1064,7 @@ ECRESULT ECStoreObjectTable::AddRowKey(ECObjectTableList* lpRows, unsigned int *
 	auto lpODStore = static_cast<const ECODStore *>(m_lpObjectData);
 	assert(!bOverride); // Default implementation never has override enabled, so we should never see this
 	assert(lpOverride == NULL);
-	ulock_rec biglock(m_hLock);
+	std::unique_lock biglock(m_hLock);
 
     // Use normal table update code if:
     //  - not an initial load (but a table update)

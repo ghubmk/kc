@@ -539,7 +539,7 @@ ECRESULT ECTableManager::GetTable(unsigned int ulTableId, ECGenericObjectTable *
 ECRESULT ECTableManager::CloseTable(unsigned int ulTableId)
 {
 	ECRESULT er = erSuccess;
-	ulock_rec lk(hListMutex);
+	std::unique_lock lk(hListMutex);
 	auto iterTables = mapTable.find(ulTableId);
 	if (iterTables == mapTable.cend())
 		return er;

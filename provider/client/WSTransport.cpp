@@ -3428,7 +3428,7 @@ HRESULT WSTransport::HrResolvePseudoUrl(const char *lpszPseudoUrl, char **lppszS
 	ResolveResult cachedResult, *lpCachedResult = nullptr;
 
 	// First try the cache
-	ulock_rec l_cache(m_ResolveResultCacheMutex);
+	std::unique_lock l_cache(m_ResolveResultCacheMutex);
 	auto er = m_ResolveResultCache.GetCacheItem(lpszPseudoUrl, &lpCachedResult);
 	if (er == erSuccess) {
 		hr = lpCachedResult->hr;

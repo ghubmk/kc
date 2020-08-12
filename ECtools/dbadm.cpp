@@ -4,6 +4,7 @@
  */
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <string>
 #include <utility>
@@ -132,7 +133,7 @@ void da_exec::notify(ECRESULT ret)
 
 ECRESULT da_exec::quiesce()
 {
-	ulock_normal locker(m_hMutex);
+	std::unique_lock locker(m_hMutex);
 	while (!adm_quit && (m_listTasks.size() > 0 || m_active > 0))
 		m_hCondTaskDone.wait(locker);
 	/* Reset code for use with subsequent quiesce call. */

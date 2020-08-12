@@ -3,6 +3,7 @@
  * Copyright 2005 - 2016 Zarafa and its licensors
  */
 #include <chrono>
+#include <mutex>
 #include <utility>
 #include <kopano/ECUnknown.h>
 #include <kopano/memory.hpp>
@@ -179,7 +180,7 @@ ULONG MAPINotifSink::OnNotify(ULONG cNotifications, LPNOTIFICATION lpNotificatio
 {
 	ULONG rc = 0;
 	memory_ptr<NOTIFICATION> lpNotif;
-	ulock_normal biglock(m_hMutex);
+	std::unique_lock biglock(m_hMutex);
 	for (unsigned int i = 0; i < cNotifications; ++i) {
 		if (MAPIAllocateBuffer(sizeof(NOTIFICATION), &~lpNotif) != hrSuccess) {
 			rc = 1;
@@ -200,7 +201,7 @@ HRESULT MAPINotifSink::GetNotifications(ULONG *lpcNotif, LPNOTIFICATION *lppNoti
     ULONG cNotifs = 0;
 	auto limit = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout);
 
-	ulock_normal biglock(m_hMutex);
+	std::unique_lock biglock(m_hMutex);
 	if (!fNonBlock) {
 		while (m_lstNotifs.empty() && !m_bExit && (timeout == 0 || std::chrono::steady_clock::now() < limit))
 			if (timeout == 0)

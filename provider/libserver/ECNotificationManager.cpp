@@ -124,7 +124,7 @@ ECNotificationManager::ECNotificationManager()
 
 ECNotificationManager::~ECNotificationManager()
 {
-	ulock_normal l_ses(m_mutexSessions);
+	std::unique_lock l_ses(m_mutexSessions);
 	m_bExit = true;
 	m_condSessions.notify_all();
 	l_ses.unlock();
@@ -147,7 +147,7 @@ ECNotificationManager::~ECNotificationManager()
 HRESULT ECNotificationManager::AddRequest(ECSESSIONID ecSessionId, struct soap *soap)
 {
     struct soap *lpItem = NULL;
-	ulock_normal l_req(m_mutexRequests);
+	std::unique_lock l_req(m_mutexRequests);
 	auto iterRequest = m_mapRequests.find(ecSessionId);
 	if (iterRequest != m_mapRequests.cend()) {
         // Hm. There is already a SOAP request waiting for this session id. Apparently a second SOAP connection has now
@@ -208,7 +208,7 @@ void *ECNotificationManager::Work() {
 
     // Keep looping until we should exit
     while(1) {
-		ulock_normal l_ses(m_mutexSessions);
+		std::unique_lock l_ses(m_mutexSessions);
 		if (m_bExit)
 			break;
 		if (m_setActiveSessions.size() == 0)
@@ -222,7 +222,7 @@ void *ECNotificationManager::Work() {
         // Look at all the sessions that have signalled a change
         for (const auto &ses : setActiveSessions) {
             lpItem = NULL;
-			ulock_normal l_req(m_mutexRequests);
+			std::unique_lock l_req(m_mutexRequests);
 
             // Find the request for the session that had something to say
             auto iterRequest = m_mapRequests.find(ses);
@@ -280,7 +280,7 @@ void *ECNotificationManager::Work() {
          * TCP timeout of 70 seconds, we need to respond well within those 70 seconds. We therefore use a timeout
          * value of 60 seconds here.
          */
-		ulock_normal l_req(m_mutexRequests);
+		std::unique_lock l_req(m_mutexRequests);
         time(&ulNow);
         for (const auto &req : m_mapRequests)
             if (ulNow - req.second.ulRequestTime > m_ulTimeout)

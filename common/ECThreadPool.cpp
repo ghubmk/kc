@@ -70,7 +70,7 @@ ECWatchdog::ECWatchdog(std::shared_ptr<ECConfig> cfg, ECThreadPool *parent) :
 ECWatchdog::~ECWatchdog()
 {
 	void *ret;
-	ulock_normal l_exit(m_exit_mtx);
+	std::unique_lock l_exit(m_exit_mtx);
 	m_exit = true;
 	m_condexit.notify_one();
 	l_exit.unlock();
@@ -97,7 +97,7 @@ void *ECWatchdog::watcher(void *param)
 			 */
 			self->m_pool->add_extra_thread();
 
-		ulock_normal l_exit(self->m_exit_mtx);
+		std::unique_lock l_exit(self->m_exit_mtx);
 		if (!self->m_exit)
 			self->m_condexit.wait_for(l_exit, duration<double>(1.0 / freq));
 	}
@@ -141,7 +141,7 @@ bool ECThreadPool::enqueue(ECTask *lpTask, bool bTakeOwnership,
 	STaskInfo sTaskInfo;
 	sTaskInfo.lpTask = lpTask;
 	sTaskInfo.bDelete = bTakeOwnership;
-	ulock_normal locker(m_hMutex);
+	std::unique_lock locker(m_hMutex);
 	sTaskInfo.enq_stamp = time_point::clock::now();
 	if (enqtime != nullptr)
 		*enqtime = sTaskInfo.enq_stamp;
@@ -195,7 +195,7 @@ HRESULT ECThreadPool::create_thread_unlocked()
 
 void ECThreadPool::add_extra_thread()
 {
-	ulock_normal lk(m_hMutex);
+	std::unique_lock lk(m_hMutex);
 	if (m_setThreads.size() < m_threads_max)
 		create_thread_unlocked();
 }
@@ -216,7 +216,7 @@ void ECThreadPool::set_thread_count(unsigned int ulThreadCount,
 	if (thrmax < ulThreadCount)
 		thrmax = ulThreadCount;
 
-	ulock_normal locker(m_hMutex);
+	std::unique_lock locker(m_hMutex);
 	m_threads_spares = ulThreadCount;
 	m_threads_max = thrmax;
 	if (ulThreadCount == threadCount() - 1) {
@@ -265,7 +265,8 @@ void ECThreadPool::set_thread_count(unsigned int ulThreadCount,
  * @retval	true	The next task was successfully obtained.
  * @retval	false	The thread was requested to exit.
  */
-bool ECThreadPool::getNextTask(STaskInfo *lpsTaskInfo, ulock_normal &locker)
+bool ECThreadPool::getNextTask(STaskInfo *lpsTaskInfo,
+    std::unique_lock<std::mutex> &locker)
 {
 	assert(locker.owns_lock());
 	assert(lpsTaskInfo != NULL);
@@ -304,7 +305,7 @@ bool ECThreadPool::getNextTask(STaskInfo *lpsTaskInfo, ulock_normal &locker)
 /**
  * Call pthread_join on all terminated threads for cleanup.
  */
-void ECThreadPool::joinTerminated(ulock_normal &locker)
+void ECThreadPool::joinTerminated(std::unique_lock<std::mutex> &locker)
 {
 	assert(locker.owns_lock());
 	for (const auto &pair : m_setTerminated)
@@ -338,7 +339,7 @@ void* ECThreadPool::threadFunc(void *lpVoid)
 		STaskInfo sTaskInfo{};
 		bool bResult = false;
 
-		ulock_normal locker(lpPool->m_hMutex);
+		std::unique_lock locker(lpPool->m_hMutex);
 		bResult = lpPool->getNextTask(&sTaskInfo, locker);
 		if (bResult)
 			++lpPool->m_active;
@@ -390,7 +391,7 @@ ECWaitableTask::~ECWaitableTask()
  */
 void ECWaitableTask::execute()
 {
-	ulock_normal big(m_hMutex);
+	std::unique_lock big(m_hMutex);
 	m_state = Running;
 	m_hCondition.notify_all();
 	big.unlock();
@@ -413,7 +414,7 @@ void ECWaitableTask::execute()
  */
 bool ECWaitableTask::wait(unsigned timeout, unsigned waitMask) const
 {
-	ulock_normal locker(m_hMutex);
+	std::unique_lock locker(m_hMutex);
 
 	switch (timeout) {
 	case 0:
@@ -443,7 +444,7 @@ ECScheduler::ECScheduler()
 
 ECScheduler::~ECScheduler()
 {
-	ulock_normal l_exit(m_hExitMutex);
+	std::unique_lock l_exit(m_hExitMutex);
 	m_bExit = true;
 	m_hExitSignal.notify_one();
 	l_exit.unlock();
@@ -522,7 +523,7 @@ void *ECScheduler::ScheduleThread(void *lpTmpScheduler)
 
 	while (true) {
 		/* Wait for a terminate signal or return after a few minutes */
-		ulock_normal l_exit(lpScheduler->m_hExitMutex);
+		std::unique_lock l_exit(lpScheduler->m_hExitMutex);
 		if (lpScheduler->m_bExit)
 			break;
 		if (lpScheduler->m_hExitSignal.wait_for(l_exit, std::chrono::seconds(SCHEDULER_POLL_FREQUENCY)) !=
@@ -531,7 +532,7 @@ void *ECScheduler::ScheduleThread(void *lpTmpScheduler)
 		l_exit.unlock();
 
 		for (auto &sl : lpScheduler->m_listScheduler) {
-			ulock_rec l_sched(lpScheduler->m_hSchedulerMutex);
+			std::unique_lock l_sched(lpScheduler->m_hSchedulerMutex);
 
 			/* TODO If load on server high, check only items with a high priority */
 			time(&ttime);

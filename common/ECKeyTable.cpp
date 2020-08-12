@@ -1124,7 +1124,7 @@ ECRESULT ECKeyTable::UpdatePartialSortKey(sObjectTableKey *lpsRowItem,
     bool *lpfHidden, ECKeyTable::UpdateType *lpulAction)
 {
     ECTableRow *lpCursor = NULL;
-	ulock_rec biglock(mLock);
+	std::unique_lock biglock(mLock);
 	auto er = GetRow(lpsRowItem, &lpCursor);
     if(er != erSuccess)
 		return er;
@@ -1152,7 +1152,7 @@ ECRESULT ECKeyTable::UpdatePartialSortKey(sObjectTableKey *lpsRowItem,
  */
 ECRESULT ECKeyTable::GetRow(sObjectTableKey *lpsRowItem, ECTableRow **lpRow)
 {
-	ulock_rec biglock(mLock);
+	std::unique_lock biglock(mLock);
 	ECTableRow *lpCursor = lpCurrent;
 	auto er = SeekId(lpsRowItem);
     if(er != erSuccess)

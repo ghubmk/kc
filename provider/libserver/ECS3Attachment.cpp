@@ -772,7 +772,7 @@ ECRESULT ECS3Attachment::GetSizeInstance(const ext_siid &ins_id,
 	auto filename = make_att_filename(ins_id);
 	auto fn = filename.c_str();
 
-	ulock_normal locker(m_config.m_cachelock);
+	std::unique_lock locker(m_config.m_cachelock);
 	auto cache_item = m_config.m_cache.find(ins_id.siid);
 	if (cache_item != m_config.m_cache.cend() &&
 	    steady_clock::now() < cache_item->second.valid_until) {

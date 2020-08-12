@@ -67,7 +67,7 @@ HRESULT M4LMAPISupport::GetMemAllocRoutines(ALLOCATEBUFFER **lpAllocateBuffer,
 HRESULT M4LMAPISupport::Subscribe(const NOTIFKEY *lpKey, ULONG ulEventMask,
     ULONG ulFlags, IMAPIAdviseSink *lpAdviseSink, ULONG *lpulConnection)
 {
-	ulock_normal l_adv(m_advises_mutex, std::defer_lock_t());
+	std::unique_lock l_adv(m_advises_mutex, std::defer_lock_t());
 
 	/* Copy key (this should prevent deletion of the key while it is still in the list */
 	memory_ptr<NOTIFKEY> lpNewKey;
@@ -97,7 +97,7 @@ HRESULT M4LMAPISupport::Notify(const NOTIFKEY *lpKey, ULONG cNotification,
     NOTIFICATION *lpNotifications, ULONG *lpulFlags)
 {
 	object_ptr<IMAPIAdviseSink> lpAdviseSink;
-	ulock_normal l_adv(m_advises_mutex);
+	std::unique_lock l_adv(m_advises_mutex);
 
 	auto iter = std::find_if(m_advises.cbegin(), m_advises.cend(),
 		[=](const auto &entry) {

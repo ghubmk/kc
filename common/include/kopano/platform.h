@@ -5,7 +5,6 @@
 #pragma once
 #include <kopano/zcdefs.h>
 #include <kopano/platform.linux.h>
-#include <mutex>
 #include <string>
 #include <type_traits>
 #include <cassert>
@@ -111,9 +110,6 @@ static inline uint32_t get_unaligned_le32(const uint32_t *p)
 	memcpy(&v, p, sizeof(v));
 	return le32_to_cpu(v);
 }
-
-typedef std::unique_lock<std::mutex> ulock_normal;
-typedef std::unique_lock<std::recursive_mutex> ulock_rec;
 
 } /* namespace */
 

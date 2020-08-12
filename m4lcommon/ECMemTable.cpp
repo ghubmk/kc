@@ -88,7 +88,7 @@ HRESULT ECMemTable::HrGetAllWithStatus(LPSRowSet *lppRowSet, LPSPropValue *lppID
 	memory_ptr<SPropValue> lpIDs;
 	memory_ptr<ULONG> lpulStatus;
 	int n = 0;
-	ulock_rec l_data(m_hDataMutex);
+	std::unique_lock l_data(m_hDataMutex);
 
 	auto hr = MAPIAllocateBuffer(CbNewSRowSet(mapRows.size()), &~lpRowSet);
 	if(hr != hrSuccess)
@@ -156,7 +156,7 @@ HRESULT ECMemTable::HrGetRowData(LPSPropValue lpRow, ULONG *lpcValues, LPSPropVa
 {
 	ULONG cValues = 0;
 	memory_ptr<SPropValue> lpRowData;
-	ulock_rec l_data(m_hDataMutex);
+	std::unique_lock l_data(m_hDataMutex);
 
 	if (lpRow->ulPropTag != ulRowPropTag)
 		return MAPI_E_INVALID_PARAMETER;

@@ -138,7 +138,7 @@ HRESULT M4LProfAdmin::GetProfileTable(ULONG ulFlags, LPMAPITABLE* lppTable) {
 	if(hr != hrSuccess)
 		return hr;
 
-	ulock_rec l_prof(m_mutexProfiles);
+	std::unique_lock l_prof(m_mutexProfiles);
 	for (auto &prof : profiles) {
 		sProps[0].ulPropTag = PR_DEFAULT_PROFILE;
 		sProps[0].Value.b = false; //FIXME: support setDefaultProfile
@@ -180,7 +180,7 @@ HRESULT M4LProfAdmin::CreateProfile(const TCHAR *lpszProfileName,
 {
 	object_ptr<M4LProfSect> profilesection;
 	SPropValue sPropValue;
-	ulock_rec l_prof(m_mutexProfiles);
+	std::unique_lock l_prof(m_mutexProfiles);
     
     if(lpszProfileName == NULL) {
 		ec_log_err("M4LProfAdmin::CreateProfile(): invalid parameters");
@@ -359,7 +359,7 @@ HRESULT M4LMsgServiceAdmin::GetMsgServiceTable(ULONG ulFlags, LPMAPITABLE* lppTa
 		return kc_perrorf("failed to create memtable", hr);
 	
 	// Loop through all providers, add each to the table
-	ulock_rec l_srv(m_mutexserviceadmin);
+	std::unique_lock l_srv(m_mutexserviceadmin);
 	for (auto &serv : services) {
 		sProps[0].ulPropTag = PR_SERVICE_UID;
 		sProps[0].Value.bin.lpb = reinterpret_cast<BYTE *>(&serv->muid);
@@ -516,7 +516,7 @@ HRESULT M4LMsgServiceAdmin::ConfigureMsgService(const MAPIUID *lpUID,
 		ec_log_err("ConfigureMsgService: invalid parameters");
 		return MAPI_E_INVALID_PARAMETER;
 	}
-	ulock_rec l_srv(m_mutexserviceadmin);
+	std::unique_lock l_srv(m_mutexserviceadmin);
 	auto entry = findServiceAdmin(lpUID);
 	if (!entry) {
 		ec_log_err("ConfigureMsgService: service UID %s not found",
@@ -549,7 +549,7 @@ HRESULT M4LMsgServiceAdmin::OpenProfileSection(const MAPIUID *lpUID,
 {
 	memory_ptr<SPropValue> lpsPropVal;
 	object_ptr<IMAPIProp> lpMapiProp;
-	ulock_rec l_srv(m_mutexserviceadmin);
+	std::unique_lock l_srv(m_mutexserviceadmin);
 
 	if(lpUID && memcmp(lpUID, &pbGlobalProfileSectionGuid, sizeof(MAPIUID)) == 0) {
 		return profilesection->QueryInterface(lpInterface ? *lpInterface : IID_IProfSect, reinterpret_cast<void **>(lppProfSect));
@@ -636,7 +636,7 @@ HRESULT M4LMsgServiceAdmin::GetProviderTable(ULONG ulFlags, LPMAPITABLE* lppTabl
 	if (hr != hrSuccess)
 		return kc_perrorf("ECMemTable::Create failed", hr);
 
-	ulock_rec l_srv(m_mutexserviceadmin);
+	std::unique_lock l_srv(m_mutexserviceadmin);
 	for (auto &serv : services) {
 		if (serv->bInitialize)
 			continue;
@@ -725,7 +725,7 @@ HRESULT M4LMAPISession::GetMsgStoresTable(ULONG ulFlags, LPMAPITABLE* lppTable) 
 		return kc_perrorf("ECMemTable::Create failed", hr);
 	
 	// Loop through all providers, add each to the table
-	ulock_rec l_srv(serviceAdmin->m_mutexserviceadmin);
+	std::unique_lock l_srv(serviceAdmin->m_mutexserviceadmin);
 	for (auto &prov : serviceAdmin->providers) {
 		memory_ptr<SPropValue> lpDest, lpsProps;
 
@@ -2310,7 +2310,7 @@ HRESULT SessionRestorer::restore_services(IProfAdmin *profadm)
 		if (svcuid_prop->Value.bin.cb != sizeof(entry->muid))
 			return MAPI_E_CORRUPT_DATA;
 		memcpy(&entry->muid, svcuid_prop->Value.bin.lpb, sizeof(entry->muid));
-		ulock_rec svclk(m_svcadm->m_mutexserviceadmin);
+		std::unique_lock svclk(m_svcadm->m_mutexserviceadmin);
 		m_svcadm->services.emplace_back(std::move(entry));
 		svclk.unlock();
 

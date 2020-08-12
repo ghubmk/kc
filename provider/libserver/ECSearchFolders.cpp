@@ -57,11 +57,11 @@ ECSearchFolders::ECSearchFolders(ECSessionManager *lpSessionManager,
 }
 
 ECSearchFolders::~ECSearchFolders() {
-	ulock_rec l_sf(m_mutexMapSearchFolders);
+	std::unique_lock l_sf(m_mutexMapSearchFolders);
 	m_mapSearchFolders.clear();
 	l_sf.unlock();
 
-	ulock_rec l_events(m_mutexEvents);
+	std::unique_lock l_events(m_mutexEvents);
     m_bExitThread = true;
 	m_condEvents.notify_all();
 	l_events.unlock();
@@ -175,7 +175,7 @@ ECRESULT ECSearchFolders::AddSearchFolder(unsigned int ulStoreId,
 {
     struct searchCriteria *lpCriteria = NULL;
     unsigned int ulParent = 0;
-	ulock_rec l_sf(m_mutexMapSearchFolders, std::defer_lock_t());
+	std::unique_lock l_sf(m_mutexMapSearchFolders, std::defer_lock_t());
 	auto cleanup = make_scope_success([&]() { soap_del_PointerTosearchCriteria(&lpCriteria); });
 
     if(lpSearchCriteria == NULL) {
@@ -243,7 +243,7 @@ ECRESULT ECSearchFolders::AddSearchFolder(unsigned int ulStoreId,
 ECRESULT ECSearchFolders::CancelSearchFolder(unsigned int ulStoreID, unsigned int ulFolderId)
 {
     // Lock the list, preventing other Cancel requests messing with the thread
-	ulock_rec l_sf(m_mutexMapSearchFolders);
+	std::unique_lock l_sf(m_mutexMapSearchFolders);
 
 	auto iterStore = m_mapSearchFolders.find(ulStoreID);
 	if (iterStore == m_mapSearchFolders.cend())
@@ -273,7 +273,7 @@ void ECSearchFolders::DestroySearchFolder(std::shared_ptr<SEARCHFOLDER> &&lpFold
 	 * the thread The condition is used for all threads, so it may have
 	 * been fired for a different thread. This is efficient enough.
 	 */
-	ulock_normal lk(lpFolder->mMutexThreadFree);
+	std::unique_lock lk(lpFolder->mMutexThreadFree);
 	m_condThreadExited.wait(lk, [=]() { return lpFolder->bThreadFree; });
 	lk.unlock();
 	lpFolder.reset();
@@ -288,7 +288,7 @@ ECRESULT ECSearchFolders::RemoveSearchFolder(unsigned int ulStoreID)
 {
 	std::list<std::shared_ptr<SEARCHFOLDER>> listSearchFolders;
 	// Lock the list, preventing other Cancel requests messing with the thread
-	ulock_rec l_sf(m_mutexMapSearchFolders);
+	std::unique_lock l_sf(m_mutexMapSearchFolders);
 
 	auto iterStore = m_mapSearchFolders.find(ulStoreID);
 	if (iterStore == m_mapSearchFolders.cend())
@@ -421,7 +421,7 @@ ECRESULT ECSearchFolders::ProcessMessageChange(unsigned int ulStoreId, unsigned 
 
 	lstPrefix.emplace_back(PR_MESSAGE_FLAGS);
 	ECLocale locale = m_lpSessionManager->GetSortLocale(ulStoreId);
-	ulock_rec l_sf(m_mutexMapSearchFolders);
+	std::unique_lock l_sf(m_mutexMapSearchFolders);
 
 	auto er = m_lpDatabaseFactory->get_tls_db(&lpDatabase);
     if(er != erSuccess)
@@ -1069,7 +1069,7 @@ void ECSearchFolders::SearchThread(THREADINFO *ti)
     // Signal search complete to clients
     lpSearchFolders->m_lpSessionManager->NotificationSearchComplete(lpFolder->ulFolderId, lpFolder->ulStoreId);
 	/* Signal exit from thread */
-	ulock_normal l_thr(lpFolder->mMutexThreadFree);
+	std::unique_lock l_thr(lpFolder->mMutexThreadFree);
 	lpFolder->bThreadFree = true;
 	lpSearchFolders->m_condThreadExited.notify_one();
 	l_thr.unlock();
@@ -1388,7 +1388,7 @@ ECRESULT ECSearchFolders::SaveSearchCriteriaRow(ECDatabase *lpDatabase,
 
 void ECSearchFolders::FlushAndWait()
 {
-	ulock_rec l_ev(m_mutexEvents);
+	std::unique_lock l_ev(m_mutexEvents);
 	m_condEvents.notify_all();
 	m_cond_flush.wait(l_ev);
 	l_ev.unlock();
@@ -1405,7 +1405,7 @@ void * ECSearchFolders::ProcessThread(void *lpSearchFolders)
 
     while(1) {
         // Get events to process
-		ulock_rec l_ev(lpThis->m_mutexEvents);
+		std::unique_lock l_ev(lpThis->m_mutexEvents);
 		if (lpThis->m_bExitThread)
 			break;
 		if (lpThis->m_lstEvents.empty())
@@ -1445,7 +1445,7 @@ ECRESULT ECSearchFolders::FlushEvents()
 
     // We do a copy-remove-process cycle here to keep the event queue locked for the least time as possible with
     // 500 events at a time
-	ulock_rec l_ev(m_mutexEvents);
+	std::unique_lock l_ev(m_mutexEvents);
     for (int i = 0; i < 500; ++i) {
         // Move the first element of m_lstEvents to the head of our list.
         if(m_lstEvents.empty())
@@ -1509,7 +1509,7 @@ ECRESULT ECSearchFolders::FlushEvents()
 sSearchFolderStats ECSearchFolders::get_stats()
 {
 	sSearchFolderStats sStats;
-	ulock_rec l_sf(m_mutexMapSearchFolders);
+	std::unique_lock l_sf(m_mutexMapSearchFolders);
 
 	sStats.ulStores = m_mapSearchFolders.size();
 	sStats.ullSize = sStats.ulStores * sizeof(decltype(m_mapSearchFolders)::value_type);
@@ -1523,7 +1523,7 @@ sSearchFolderStats ECSearchFolders::get_stats()
 	}
 	l_sf.unlock();
 
-	ulock_rec l_ev(m_mutexEvents);
+	std::unique_lock l_ev(m_mutexEvents);
 	sStats.ulEvents = m_lstEvents.size();
 	l_ev.unlock();
 	sStats.ullSize += sStats.ulEvents * sizeof(EVENT);

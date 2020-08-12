@@ -260,7 +260,7 @@ void ECStatsCollector::mainloop()
 			next_wk = std::min(next_wk, next_sv);
 		}
 
-		ulock_normal blah(mtx);
+		std::unique_lock blah(mtx);
 		if (m_exitsig.wait_until(blah, next_wk) != std::cv_status::timeout)
 			break;
 	} while (!terminate);

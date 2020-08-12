@@ -87,7 +87,7 @@ ECNotifyClient::~ECNotifyClient()
 	 * This is however not always the case, but ECNotifyMaster and Server will remove all
 	 * advises when the session is removed.
 	 */
-	ulock_rec biglock(m_hMutex);
+	std::unique_lock biglock(m_hMutex);
 	m_mapAdvise.clear();
 	m_mapChangeAdvise.clear();
 }
@@ -415,7 +415,7 @@ HRESULT ECNotifyClient::Notify(ULONG ulConnection, const NOTIFYLIST &lNotificati
 		notifications.emplace_back(tmp);
 	}
 
-	ulock_rec biglock(m_hMutex);
+	std::unique_lock biglock(m_hMutex);
 
 	/* Search for the right connection */
 	auto iterAdvise = m_mapAdvise.find(ulConnection);
@@ -470,7 +470,7 @@ HRESULT ECNotifyClient::NotifyChange(ULONG ulConnection, const NOTIFYLIST &lNoti
 {
 	memory_ptr<ENTRYLIST> lpSyncStates;
 	std::list<SBinary *> syncStates;
-	ulock_rec biglock(m_hMutex, std::defer_lock_t());
+	std::unique_lock biglock(m_hMutex, std::defer_lock_t());
 
 	/* Create a straight array of MAX_NOTIFS_PER_CALL sync states */
 	auto hr = MAPIAllocateBuffer(sizeof(*lpSyncStates), &~lpSyncStates);

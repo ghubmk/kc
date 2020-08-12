@@ -78,7 +78,7 @@ ECSessionManager::ECSessionManager(std::shared_ptr<ECConfig> cfg,
 
 void ECSessionManager::shutdown()
 {
-	ulock_normal l_exit(m_hExitMutex);
+	std::unique_lock l_exit(m_hExitMutex);
 	bExit = true;
 	m_hExitSignal.notify_one();
 	l_exit.unlock();
@@ -580,7 +580,7 @@ ECRESULT ECSessionManager::AddNotification(notification *notifyItem, unsigned in
 	}
 
 	// Send notification to subscribed sessions
-	ulock_normal l_sub(m_mutexObjectSubscriptions);
+	std::unique_lock l_sub(m_mutexObjectSubscriptions);
 	for (auto sub = m_mapObjectSubscriptions.lower_bound(ulStore);
 	     sub != m_mapObjectSubscriptions.cend() && sub->first == ulStore;
 	     ++sub)
@@ -681,7 +681,7 @@ void* ECSessionManager::SessionCleaner(void *lpTmpSessionManager)
 		KC::sync_logon_times(lpSessionManager->GetCacheManager(), db);
 
 		// Wait for a terminate signal or return after a few minutes
-		ulock_normal l_exit(lpSessionManager->m_hExitMutex);
+		std::unique_lock l_exit(lpSessionManager->m_hExitMutex);
 		if(lpSessionManager->bExit) {
 			l_exit.unlock();
 			break;
@@ -734,7 +734,7 @@ ECRESULT ECSessionManager::UpdateSubscribedTables(ECKeyTable::UpdateType ulType,
 	std::set<ECSESSIONID> setSessions;
 
     // Find out which sessions our interested in this event by looking at our subscriptions
-	ulock_normal l_sub(m_mutexTableSubscriptions);
+	std::unique_lock l_sub(m_mutexTableSubscriptions);
 	for (auto sub = m_mapTableSubscriptions.find(sSubscription);
 	     sub != m_mapTableSubscriptions.cend() && sub->first == sSubscription; ++sub)
 		setSessions.emplace(sub->second);
@@ -1003,7 +1003,7 @@ sSessionManagerStats ECSessionManager::get_stats()
 	l_group.unlock();
 
 	// persistent connections/sessions
-	ulock_normal l_per(m_mutexPersistent);
+	std::unique_lock l_per(m_mutexPersistent);
 	sStats.ulPersistentByConnection = m_mapPersistentByConnection.size();
 	sStats.ulPersistentByConnectionSize = MEMORY_USAGE_HASHMAP(sStats.ulPersistentByConnection, decltype(m_mapPersistentByConnection));
 	sStats.ulPersistentBySession = m_mapPersistentBySession.size();
@@ -1011,13 +1011,13 @@ sSessionManagerStats ECSessionManager::get_stats()
 	l_per.unlock();
 
 	// Table subscriptions
-	ulock_normal l_tblsub(m_mutexTableSubscriptions);
+	std::unique_lock l_tblsub(m_mutexTableSubscriptions);
 	sStats.ulTableSubscriptions = m_mapTableSubscriptions.size();
 	sStats.ulTableSubscriptionSize = MEMORY_USAGE_MULTIMAP(sStats.ulTableSubscriptions, decltype(m_mapTableSubscriptions));
 	l_tblsub.unlock();
 
 	// Object subscriptions
-	ulock_normal l_objsub(m_mutexObjectSubscriptions);
+	std::unique_lock l_objsub(m_mutexObjectSubscriptions);
 	sStats.ulObjectSubscriptions = m_mapObjectSubscriptions.size();
 	sStats.ulObjectSubscriptionSize = MEMORY_USAGE_MULTIMAP(sStats.ulObjectSubscriptions, decltype(m_mapObjectSubscriptions));
 	l_objsub.unlock();

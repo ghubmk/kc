@@ -67,7 +67,7 @@ static HRESULT running_service()
 	while (!m_lpThreadMonitor->bShutdown) {
 		if (mo_sighup_flag)
 			mo_sighup_deferred();
-		ulock_normal lk(mtx);
+		std::unique_lock lk(mtx);
 		mo_wakeup_cond.wait(lk);
 	}
 	return hrSuccess;

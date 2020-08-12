@@ -34,7 +34,7 @@ ULONG ECUnknown::Release() {
 		assert(false);
 	if (nRef != 0)
 		return nRef;
-	ulock_normal locker(mutex);
+	std::unique_lock locker(mutex);
 	bool lastref = lstChildren.empty();
 	locker.unlock();
 	if (lastref)
@@ -59,7 +59,7 @@ HRESULT ECUnknown::AddChild(ECUnknown *lpChild) {
 }
 
 HRESULT ECUnknown::RemoveChild(ECUnknown *lpChild) {
-	ulock_normal locker(mutex);
+	std::unique_lock locker(mutex);
 	auto iterChild = lstChildren.end();
 
 	if (lpChild != NULL)

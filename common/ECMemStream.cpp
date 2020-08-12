@@ -416,7 +416,7 @@ ECRESULT ECFifoBuffer::Write(const void *lpBuf, size_type cbBuf,
 		return erSuccess;
 	}
 
-	ulock_normal locker(m_hMutex);
+	std::unique_lock locker(m_hMutex);
 	while (cbWritten < cbBuf) {
 		while (IsFull()) {
 			if (IsClosed(cfRead)) {
@@ -480,7 +480,7 @@ ECRESULT ECFifoBuffer::Read(void *lpBuf, size_type cbBuf,
 		return erSuccess;
 	}
 
-	ulock_normal locker(m_hMutex);
+	std::unique_lock locker(m_hMutex);
 	while (cbRead < cbBuf) {
 		while (IsEmpty()) {
 			if (IsClosed(cfWrite))
@@ -546,7 +546,7 @@ ECRESULT ECFifoBuffer::Flush()
 	if (!IsClosed(cfWrite))
 		return KCERR_NETWORK_ERROR;
 
-	ulock_normal locker(m_hMutex);
+	std::unique_lock locker(m_hMutex);
 	m_hCondFlushed.wait(locker,
 		[this]() { return IsClosed(cfWrite) || IsEmpty(); });
 	return erSuccess;

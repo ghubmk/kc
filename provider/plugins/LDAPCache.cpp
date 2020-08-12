@@ -164,7 +164,7 @@ bool LDAPCache::isDNInList(const dn_list_t &lpList, const std::string &dn)
 std::pair<bool, signatures_t> LDAPCache::get_parents(userobject_relation_t rel,
     const objectid_t &child)
 {
-	ulock_normal lock(m_parents_lock);
+	std::unique_lock lock(m_parents_lock);
 	signatures_t sigstor;
 	timed_sglist_t *sigp = nullptr;
 	auto ci = m_parent_cache.find(rel);

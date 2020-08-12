@@ -5,6 +5,7 @@
 #include <kopano/platform.h>
 #include <algorithm>
 #include <memory>
+#include <mutex>
 #include <new>
 #include <set>
 #include <string>
@@ -807,7 +808,7 @@ HRESULT ZCABContainer::OpenEntry(ULONG cbEntryID, const ENTRYID *lpEntryID,
 			if (i == m_lpFolders->cend())
 				return MAPI_E_NOT_FOUND;
 			object_ptr<IMsgStore> ptrStore;
-			ulock_normal lk(m_storemap_lock);
+			std::unique_lock lk(m_storemap_lock);
 			if (i->store == nullptr) {
 				hr = ptrSession->OpenMsgStore(0, i->cbStore, reinterpret_cast<ENTRYID *>(i->lpStore), nullptr, 0, &~i->store);
 				if (hr != hrSuccess)

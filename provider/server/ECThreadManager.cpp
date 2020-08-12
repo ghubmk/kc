@@ -8,6 +8,7 @@
 #include <kopano/platform.h>
 #include <chrono>
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -351,7 +352,7 @@ void ECDispatcher::NotifyDone(struct soap *soap)
 	ACTIVESOCKET sActive;
 	sActive.soap = soap;
 	time(&sActive.ulLastActivity);
-	ulock_normal l_sock(m_mutexSockets);
+	std::unique_lock l_sock(m_mutexSockets);
 	m_setSockets.emplace(soap->socket, sActive);
 	l_sock.unlock();
 	// Notify select restart, send socket number which is done
@@ -455,7 +456,7 @@ ECRESULT ECDispatcherSelect::MainLoop()
 		pollfd[nfds++].fd = m_fdRescanRead;
 
         // Listen on active sockets
-		ulock_normal l_sock(m_mutexSockets);
+		std::unique_lock l_sock(m_mutexSockets);
 		pfd_begin_sock = nfds;
 		for (const auto &p : m_setSockets) {
 			ulType = SOAP_CONNECTION_TYPE(p.second.soap);
@@ -587,7 +588,7 @@ ECRESULT ECDispatcherSelect::MainLoop()
 	m_prio.set_thread_count(0, 0, true);
 
 	// Close all sockets. This will cause all that we were listening on clients to get an EOF
-	ulock_normal l_sock(m_mutexSockets);
+	std::unique_lock l_sock(m_mutexSockets);
 	for (const auto &p : m_setSockets) {
 		kopano_end_soap_connection(p.second.soap);
 		soap_free(p.second.soap);
@@ -659,7 +660,7 @@ ECRESULT ECDispatcherEPoll::MainLoop()
 		time(&now);
 
 		// find timedout sockets once per second
-		ulock_normal l_sock(m_mutexSockets);
+		std::unique_lock l_sock(m_mutexSockets);
 		if(now > last) {
 			for (const auto &pair : m_setSockets) {
 				ulType = SOAP_CONNECTION_TYPE(pair.second.soap);
@@ -755,7 +756,7 @@ ECRESULT ECDispatcherEPoll::MainLoop()
 	m_prio.set_thread_count(0, 0, true);
 
     // Close all sockets. This will cause all that we were listening on clients to get an EOF
-	ulock_normal l_sock(m_mutexSockets);
+	std::unique_lock l_sock(m_mutexSockets);
 	for (auto &pair : m_setSockets) {
 		kopano_end_soap_connection(pair.second.soap);
 		soap_free(pair.second.soap);

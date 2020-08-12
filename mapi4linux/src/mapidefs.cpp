@@ -310,7 +310,7 @@ HRESULT M4LProviderAdmin::GetProviderTable(ULONG ulFlags, LPMAPITABLE* lppTable)
 		return hr;
 	
 	// Loop through all providers, add each to the table
-	ulock_rec l_srv(msa->m_mutexserviceadmin);
+	std::unique_lock l_srv(msa->m_mutexserviceadmin);
 	for (auto &prov : msa->providers) {
 		memory_ptr<SPropValue> lpsProps, lpDest;
 
@@ -359,7 +359,7 @@ HRESULT M4LProviderAdmin::CreateProvider(const TCHAR *lpszProvider,
 	memory_ptr<SPropValue> lpsPropValProfileName;
 	std::unique_ptr<providerEntry> entry;
 	ULONG cProviderProps = 0;
-	ulock_rec l_srv(msa->m_mutexserviceadmin);
+	std::unique_lock l_srv(msa->m_mutexserviceadmin);
 
 	if (szService == nullptr)
 		return MAPI_E_NO_ACCESS;

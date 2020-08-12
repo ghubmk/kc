@@ -69,7 +69,7 @@ HRESULT ECSessionGroupManager::GetSessionGroupData(ECSESSIONGROUPID ecSessionGro
 HRESULT ECSessionGroupManager::DeleteSessionGroupDataIfOrphan(ECSESSIONGROUPID ecSessionGroupId)
 {
 	SessionGroupData *lpSessionGroupData = NULL;
-	ulock_rec biglock(m_hMutex);
+	std::unique_lock biglock(m_hMutex);
 	auto iter = std::find_if(m_mapSessionGroups.cbegin(), m_mapSessionGroups.cend(),
 		[&](const auto &e) { return e.second->GetSessionGroupId() == ecSessionGroupId; });
 	if (iter != m_mapSessionGroups.cend()) {

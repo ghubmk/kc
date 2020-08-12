@@ -174,7 +174,7 @@ ECRESULT ECGenericObjectTable::FindRow(struct restrictTable *rt,
 	sObjectTableKey		sRowItem;
 	entryId				sEntryId;
 	auto cache = lpSession->GetSessionManager()->GetCacheManager();
-	ulock_rec biglock(m_hLock);
+	std::unique_lock biglock(m_hLock);
 
 	auto er = Populate();
 	if(er != erSuccess)
@@ -746,7 +746,7 @@ ECRESULT ECGenericObjectTable::AddRowKey(ECObjectTableList* lpRows, unsigned int
 	struct restrictTable *rt = nullptr;
 	sObjectTableKey					sRowItem;
 	ECCategory		*lpCategory = NULL;
-	ulock_rec biglock(m_hLock);
+	std::unique_lock biglock(m_hLock);
 
 	if (lpRows->empty()) {
 		// nothing todo
@@ -1083,7 +1083,7 @@ ECRESULT ECGenericObjectTable::GetCollapseState(struct soap *msoap,
     sObjectTableKey sKey;
     struct rowSet *lpsRowSet = NULL;
 	auto xmlsoap = std::make_unique<soap>();
-	ulock_rec biglock(m_hLock);
+	std::unique_lock biglock(m_hLock);
 
 	auto er = Populate();
     if(er != erSuccess)
@@ -1156,7 +1156,7 @@ ECRESULT ECGenericObjectTable::SetCollapseState(struct xsd__base64Binary sCollap
     std::istringstream is(std::string((const char *)sCollapseState.__ptr, sCollapseState.__size));
 	sObjectTableKey sKey;
     struct xsd__base64Binary sInstanceKey;
-	ulock_rec giblock(m_hLock);
+	std::unique_lock giblock(m_hLock);
 
 	auto er = Populate();
     if(er != erSuccess)

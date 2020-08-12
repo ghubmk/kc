@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstring>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <kopano/platform.h>
@@ -39,7 +40,7 @@ ECTPropsPurge::ECTPropsPurge(std::shared_ptr<ECConfig> c,
 ECTPropsPurge::~ECTPropsPurge()
 {
 	// Signal thread to exit
-	ulock_normal l_exit(m_hMutexExit);
+	std::unique_lock l_exit(m_hMutexExit);
 	m_bExit = true;
 	m_hCondExit.notify_all();
 	l_exit.unlock();
@@ -92,7 +93,7 @@ ECRESULT ECTPropsPurge::PurgeThread()
 
 		// Wait a while before repolling the count, unless we are requested to exit
         {
-			ulock_normal l_exit(m_hMutexExit);
+			std::unique_lock l_exit(m_hMutexExit);
 
 			if (m_bExit)
 				break;

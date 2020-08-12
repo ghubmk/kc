@@ -419,7 +419,7 @@ signatures_t UnixUserPlugin::getAllObjects(const objectid_t &companyid,
 		LOG_PLUGIN_DEBUG("%s Company xid:\"%s\", Class %x", __FUNCTION__, bin2txt(companyid.id).c_str(), objclass);
 
 	// use mutex to protect thread-unsafe setpwent()/setgrent() calls
-	ulock_normal biglock(m_plugin_lock);
+	std::unique_lock biglock(m_plugin_lock);
 	switch (OBJECTCLASS_TYPE(objclass)) {
 	case OBJECTTYPE_UNKNOWN:
 		objectlist = getAllUserObjects();
@@ -642,7 +642,7 @@ UnixUserPlugin::getParentObjectsForObject(userobject_relation_t relation,
 
 	// This is a rather expensive operation: loop through all the
 	// groups, and check each member for each group.
-	ulock_normal biglock(m_plugin_lock);
+	std::unique_lock biglock(m_plugin_lock);
 	setgrent();
 	while (true) {
 		auto gr = getgrent();
@@ -701,7 +701,7 @@ UnixUserPlugin::getSubObjectsForObject(userobject_relation_t relation,
 	transform(exceptuids.begin(), exceptuids.end(), inserter(exceptuidset, exceptuidset.begin()), fromstring<const std::string,uid_t>);
 
 	// iterate through /etc/passwd users to find default group (e.g. users) and add it to the list
-	ulock_normal biglock(m_plugin_lock);
+	std::unique_lock biglock(m_plugin_lock);
 	setpwent();
 	while (true) {
 		auto pw = getpwent();
@@ -753,7 +753,7 @@ UnixUserPlugin::searchObject(const std::string &match, unsigned int ulFlags)
 
 	LOG_PLUGIN_DEBUG("%s %s flags:%x", __FUNCTION__, match.c_str(), ulFlags);
 
-	ulock_normal biglock(m_plugin_lock);
+	std::unique_lock biglock(m_plugin_lock);
 	objectlist = getAllUserObjects(match, ulFlags);
 	objectlist.merge(getAllGroupObjects(match, ulFlags));
 	biglock.unlock();

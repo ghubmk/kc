@@ -108,7 +108,7 @@ HRESULT ECMAPITable::Unadvise(ULONG ulConnection)
 	if (lpNotifyClient == NULL)
 		return MAPI_E_NO_SUPPORT;
 
-	ulock_rec l_conn(m_hMutexConnectionList);
+	std::unique_lock l_conn(m_hMutexConnectionList);
 	m_ulConnectionList.erase(ulConnection);
 	l_conn.unlock();
 	lpNotifyClient->Unadvise(ulConnection);

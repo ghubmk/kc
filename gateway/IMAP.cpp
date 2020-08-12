@@ -2190,7 +2190,7 @@ HRESULT IMAP::HrCmdIdle(const std::string &strTag)
 		{NUM_COLS, {PR_ENTRYID, PR_INSTANCE_KEY, PR_EC_IMAP_ID,
 		PR_MESSAGE_FLAGS, PR_FLAG_STATUS, PR_MSG_STATUS,
 		PR_LAST_VERB_EXECUTED}};
-	ulock_normal l_idle(m_mIdleLock, std::defer_lock_t());
+	std::unique_lock l_idle(m_mIdleLock, std::defer_lock_t());
 
 	// Outlook (express) IDLEs without selecting a folder.
 	// When sending an error from this command, Outlook loops on the IDLE command forever :(

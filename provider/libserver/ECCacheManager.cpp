@@ -175,7 +175,7 @@ ECRESULT ECCacheManager::PurgeCache(unsigned int ulFlags)
 	auto start = std::chrono::steady_clock::now();
 
 	// cache mutex items
-	ulock_rec l_cache(m_hCacheMutex);
+	std::unique_lock l_cache(m_hCacheMutex);
 	if (ulFlags & PURGE_CACHE_QUOTA)
 		m_QuotaCache.ClearCache();
 	if (ulFlags & PURGE_CACHE_QUOTADEFAULT)
@@ -184,31 +184,31 @@ ECRESULT ECCacheManager::PurgeCache(unsigned int ulFlags)
 		m_AclCache.ClearCache();
 	l_cache.unlock();
 
-	ulock_rec l_object(m_hCacheObjectMutex);
+	std::unique_lock l_object(m_hCacheObjectMutex);
 	if (ulFlags & PURGE_CACHE_OBJECTS)
 		m_ObjectsCache.ClearCache();
 	l_object.unlock();
 
-	ulock_rec l_store(m_hCacheStoreMutex);
+	std::unique_lock l_store(m_hCacheStoreMutex);
 	if (ulFlags & PURGE_CACHE_STORES)
 		m_StoresCache.ClearCache();
 	l_store.unlock();
 
 	// Cell cache mutex
-	ulock_rec l_cells(m_hCacheCellsMutex);
+	std::unique_lock l_cells(m_hCacheCellsMutex);
 	if(ulFlags & PURGE_CACHE_CELL)
 		m_CellCache.ClearCache();
 	l_cells.unlock();
 
 	// Indexed properties mutex
-	ulock_rec l_prop(m_hCacheIndPropMutex);
+	std::unique_lock l_prop(m_hCacheIndPropMutex);
 	if (ulFlags & PURGE_CACHE_INDEX1)
 		m_PropToObjectCache.ClearCache();
 	if (ulFlags & PURGE_CACHE_INDEX2)
 		m_ObjectToPropCache.ClearCache();
 	l_prop.unlock();
 
-	ulock_normal l_xp(m_hExcludedIndexPropertiesMutex);
+	std::unique_lock l_xp(m_hExcludedIndexPropertiesMutex);
 	if (ulFlags & PURGE_CACHE_INDEXEDPROPERTIES)
 		m_setExcludedIndexProperties.clear();
 	l_xp.unlock();
@@ -1229,7 +1229,7 @@ void ECCacheManager::update_extra_stats(ECStatsCollector &sc)
 		/* Not quite clear about hit; looks like a counter, but is decremented sometimes */
 		sc.setg("cache_" + s.name + "_hit", "Cache " + s.name + " hits", s.hit);
 	};
-	ulock_rec l_cache(m_hCacheMutex);
+	std::unique_lock l_cache(m_hCacheMutex);
 	f(m_AclCache.get_stats());
 	f(m_QuotaCache.get_stats());
 	f(m_QuotaUserDefaultCache.get_stats());
@@ -1239,19 +1239,19 @@ void ECCacheManager::update_extra_stats(ECStatsCollector &sc)
 	f(m_ServerDetailsCache.get_stats());
 	l_cache.unlock();
 
-	ulock_rec l_store(m_hCacheStoreMutex);
+	std::unique_lock l_store(m_hCacheStoreMutex);
 	f(m_StoresCache.get_stats());
 	l_store.unlock();
 
-	ulock_rec l_object(m_hCacheObjectMutex);
+	std::unique_lock l_object(m_hCacheObjectMutex);
 	f(m_ObjectsCache.get_stats());
 	l_object.unlock();
 
-	ulock_rec l_cell(m_hCacheCellsMutex);
+	std::unique_lock l_cell(m_hCacheCellsMutex);
 	f(m_CellCache.get_stats());
 	l_cell.unlock();
 
-	ulock_rec l_prop(m_hCacheIndPropMutex);
+	std::unique_lock l_prop(m_hCacheIndPropMutex);
 	f(m_PropToObjectCache.get_stats());
 	f(m_ObjectToPropCache.get_stats());
 	l_prop.unlock();
