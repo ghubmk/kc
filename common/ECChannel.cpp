@@ -11,7 +11,9 @@
 #include <memory>
 #include <mutex>
 #include <new>
+#include <shared_mutex>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 #include <cerrno>
@@ -74,7 +76,7 @@ Creating a self-signed test certificate:
 openssl req -new -x509 -key privkey.pem -out cacert.pem -days 1095
 */
 
-shared_mutex ECChannel::ctx_lock;
+std::shared_mutex ECChannel::ctx_lock;
 SSL_CTX *ECChannel::lpCTX;
 
 HRESULT ECChannel::HrSetCtx(ECConfig *lpConfig)
@@ -117,7 +119,7 @@ HRESULT ECChannel::HrSetCtx(ECConfig *lpConfig)
 #if OPENSSL_VERSION_NUMBER >= 0x1010000fL
 	{
 		// New style init.
-		std::unique_lock<shared_mutex> lck(ctx_lock);
+		std::unique_lock lck(ctx_lock);
 		if (lpCTX == nullptr)
 			OPENSSL_init_ssl(OPENSSL_INIT_ENGINE_ALL_BUILTIN, NULL);
 	}
@@ -127,7 +129,7 @@ HRESULT ECChannel::HrSetCtx(ECConfig *lpConfig)
 #else // OPENSSL_VERSION_NUMBER < 0x1010000fL
 	{
 		// Old style init, modelled after Apache mod_ssl.
-		std::unique_lock<shared_mutex> lck(ctx_lock);
+		std::unique_lock lck(ctx_lock);
 		if (lpCTX == nullptr) {
 			ERR_load_crypto_strings();
 			SSL_load_error_strings();
@@ -218,7 +220,7 @@ HRESULT ECChannel::HrSetCtx(ECConfig *lpConfig)
 
 	// Swap in generated SSL context.
 	{
-		std::unique_lock<shared_mutex> lck(ctx_lock);
+		std::unique_lock lck(ctx_lock);
 		std::swap(lpCTX, newctx);
 		hr = hrSuccess;
 	}
@@ -232,7 +234,7 @@ HRESULT ECChannel::HrFreeCtx() {
 	// Swap out current SSL context from global context pointer.
 	SSL_CTX *ctx = nullptr;
 	{
-		std::unique_lock<shared_mutex> lck(ctx_lock);
+		std::unique_lock lck(ctx_lock);
 		std::swap(lpCTX, ctx);
 	}
 
@@ -270,7 +272,7 @@ HRESULT ECChannel::HrEnableTLS()
 	SSL *ssl = nullptr;
 	HRESULT hr = MAPI_E_CALL_FAILED;
 	{
-		std::shared_lock<KC::shared_mutex> lck(ctx_lock);
+		std::shared_lock lck(ctx_lock);
 		if (lpCTX == NULL) {
 			ec_log_err("ECChannel::HrEnableTLS(): trying to enable TLS channel when not set up");
 			goto exit;
@@ -359,7 +361,7 @@ HRESULT ECChannel::HrReadLine(std::string &strBuffer, size_t ulMaxBuffer)
 	return hrSuccess;
 }
 
-HRESULT ECChannel::HrWriteString(const string_view &strBuffer)
+HRESULT ECChannel::HrWriteString(const std::string_view &strBuffer)
 {
 	if (lpSSL) {
 		if (SSL_write(lpSSL, strBuffer.data(), static_cast<int>(strBuffer.size())) < 1)
@@ -390,7 +392,7 @@ HRESULT ECChannel::HrWriteLine(const char *szBuffer)
 	return HrWriteString("\r\n");
 }
 
-HRESULT ECChannel::HrWriteLine(const string_view &strBuffer)
+HRESULT ECChannel::HrWriteLine(const std::string_view &strBuffer)
 {
 	auto ret = HrWriteString(strBuffer);
 	if (ret != hrSuccess)

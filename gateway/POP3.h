@@ -5,6 +5,7 @@
 #pragma once
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <kopano/memory.hpp>
 #include "ClientProto.h"
@@ -31,7 +32,7 @@ public:
 
 	// getTimeoutMinutes: 5 min when logged in otherwise 1 min
 	virtual int getTimeoutMinutes() const override { return lpStore == nullptr ? 1 : 5; }
-	virtual HRESULT HrSendGreeting(const KC::string_view &host) override;
+	virtual HRESULT HrSendGreeting(const std::string_view &host) override;
 	virtual HRESULT HrCloseConnection(const std::string &quitmsg) override;
 	virtual HRESULT HrProcessCommand(const std::string &input) override;
 	virtual HRESULT HrDone(bool send_response) override;

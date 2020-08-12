@@ -167,32 +167,18 @@ m4_define([CXX17TEST], [AC_LANG_SOURCE([
 	#error
 	#endif
 ])])
-m4_define([CXX14TEST], [AC_LANG_SOURCE([
-	#if __cplusplus < 201400L
-	#error
-	#endif
-])])
-AH_TEMPLATE([KC_USES_CXX17], [Whether C++17 features were used to build KC])
 AC_MSG_CHECKING([C++ standard])
 dnl Maybe the default -std= is already enough, then don't potentially downgrade
 AC_COMPILE_IFELSE([CXX17TEST], [
-	AC_DEFINE([KC_USES_CXX17], [1])
 	AC_MSG_RESULT([default is already C++17 or better])
 ], [
 	dnl The user may have specified a -std, honor it for COMPILE_IFELSE
 	CXXFLAGS="-std=c++17 $CXXFLAGS_system"
 	AC_COMPILE_IFELSE([CXX17TEST], [
 		ZCXXFLAGS="$ZCXXFLAGS -std=c++17"
-		AC_DEFINE([KC_USES_CXX17], [1])
 		AC_MSG_RESULT([selected C++17])
 	], [
-		CXXFLAGS="-std=c++14 $CXXFLAGS_system"
-		AC_COMPILE_IFELSE([CXX14TEST], [
-			ZCXXFLAGS="$ZCXXFLAGS -std=c++14"
-			AC_MSG_RESULT([selected C++14])
-		], [
-			AC_MSG_ERROR([at least C++14 is needed])
-		])
+		AC_MSG_ERROR([at least C++17 is needed])
 	])
 ])
 CXXFLAGS="$CXXFLAGS_system"

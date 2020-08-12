@@ -5,6 +5,7 @@
 #pragma once
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <kopano/ECChannel.h>
 #include <kopano/ECLogger.h>
@@ -21,7 +22,7 @@ public:
 	virtual ~ClientProto() = default;
 	virtual int getTimeoutMinutes() const = 0;
 	virtual bool isContinue() const { return false; }; // imap only
-	virtual HRESULT HrSendGreeting(const KC::string_view &host) = 0;
+	virtual HRESULT HrSendGreeting(const std::string_view &host) = 0;
 	virtual HRESULT HrCloseConnection(const std::string &strQuitMsg) = 0;
 	virtual HRESULT HrProcessCommand(const std::string &strInput) = 0;
 	virtual HRESULT HrProcessContinue(const std::string &strInput) { return MAPI_E_NO_SUPPORT; }; // imap only

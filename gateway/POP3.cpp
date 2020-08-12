@@ -5,6 +5,7 @@
 #include <kopano/platform.h>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <climits>
 #include <cstdio>
@@ -49,7 +50,7 @@ POP3::~POP3() {
 		delete[] m.sbEntryID.lpb;
 }
 
-HRESULT POP3::HrSendGreeting(const KC::string_view &strHostString)
+HRESULT POP3::HrSendGreeting(const std::string_view &strHostString)
 {
 	if (!parseBool(lpConfig->GetSetting("server_hostname_greeting")))
 		return HrResponse(POP3_RESP_OK, "POP3 gateway ready");

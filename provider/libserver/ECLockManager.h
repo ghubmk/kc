@@ -7,6 +7,7 @@
 #include <kopano/kcodes.h>
 #include <map>
 #include <memory>
+#include <shared_mutex>
 #include <pthread.h>
 
 namespace KC {
@@ -40,7 +41,7 @@ public:
 private:
 	// Map object ids to session IDs.
 	typedef std::map<unsigned int, ECSESSIONID>	LockMap;
-	KC::shared_mutex m_hRwLock;
+	std::shared_mutex m_hRwLock;
 	LockMap				m_mapLocks;
 };
 

@@ -10,6 +10,7 @@
 #include <memory>
 #include <mutex>
 #include <set>
+#include <shared_mutex>
 #include <unordered_map>
 #include <vector>
 #include <pthread.h>
@@ -210,8 +211,8 @@ protected:
 
 	std::unordered_map<ECSESSIONGROUPID, ECSessionGroup *> m_mapSessionGroups; ///< map of all the session groups
 	std::unordered_map<ECSESSIONID, BTSession *> m_mapSessions; ///< map of all the sessions
-	KC::shared_mutex m_hCacheRWLock; ///< locking of the sessionMap
-	KC::shared_mutex m_hGroupLock; ///< locking of session group map and lonely list
+	std::shared_mutex m_hCacheRWLock; ///< locking of the sessionMap
+	std::shared_mutex m_hGroupLock; ///< locking of session group map and lonely list
 	std::mutex m_hExitMutex; /* Mutex needed for the release signal */
 	std::condition_variable m_hExitSignal; /* Signal that should be sent to the sessionncleaner when to exit */
 	pthread_t			m_hSessionCleanerThread;///< Thread that is used for the sessioncleaner

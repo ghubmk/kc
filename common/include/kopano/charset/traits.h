@@ -7,9 +7,7 @@
 #include <kopano/platform.h>
 #include <string>
 #include <cstring>
-#if KC_USES_CXX17
-#	include <string_view>
-#endif
+#include <string_view>
 
 namespace KC {
 
@@ -45,14 +43,12 @@ public:
 	}
 };
 
-#if KC_USES_CXX17
 template<> class iconv_charset<std::string_view> KC_FINAL {
 public:
 	static const char *name() { return CHARSET_CHAR; }
 	static const char *rawptr(const std::string_view &from) { return from.data(); }
 	static size_t rawsize(const std::string_view &from) { return from.size(); }
 };
-#endif
 
 template<> class iconv_charset<char *> KC_FINAL {
 public:

@@ -98,7 +98,7 @@ class ConfigImpl KC_FINAL : public Config {
 	std::list<std::string> m_lDirectives;
 
 	/* m_mapSettings & m_mapAliases are protected by m_settingsLock */
-	KC::shared_mutex m_settingsRWLock;
+	std::shared_mutex m_settingsRWLock;
 	settingmap_t m_mapSettings, m_mapAliases;
 	std::list<std::string> warnings, errors;
 	std::string m_currentFile;
@@ -257,7 +257,7 @@ bool ECConfigImpl::AddSetting(const char *szName, const char *szValue, const uns
 
 ECConfigImpl::~ECConfigImpl()
 {
-	std::lock_guard<KC::shared_mutex> lset(m_settingsRWLock);
+	std::lock_guard lset(m_settingsRWLock);
 	for (auto &e : m_mapSettings)
 		delete[] e.second;
 	for (auto &e : m_mapAliases)
@@ -312,7 +312,7 @@ const char *ECConfigImpl::GetMapEntry(const settingmap_t *lpMap,
 	if (strlen(szName) >= sizeof(key.s))
 		return NULL;
 	strcpy(key.s, szName);
-	std::shared_lock<KC::shared_mutex> lset(m_settingsRWLock);
+	std::shared_lock lset(m_settingsRWLock);
 	auto itor = lpMap->find(key);
 	if (itor != lpMap->cend())
 		return itor->second;
@@ -556,7 +556,7 @@ bool ECConfigImpl::AddSetting(const configsetting_t &lpsConfig,
 		HX_strlcpy(s.s, szAlias, sizeof(s.s));
 	}
 
-	std::lock_guard<KC::shared_mutex> lset(m_settingsRWLock);
+	std::lock_guard lset(m_settingsRWLock);
 	auto iterSettings = m_mapSettings.find(s);
 	if (iterSettings == m_mapSettings.cend()) {
 		// new items from file are illegal, add error
@@ -630,8 +630,7 @@ void ECConfigImpl::AddAlias(const configsetting_t &lpsAlias)
 
 	if (!CopyConfigSetting(lpsAlias, &s))
 		return;
-
-	std::lock_guard<KC::shared_mutex> lset(m_settingsRWLock);
+	std::lock_guard lset(m_settingsRWLock);
 	InsertOrReplace(&m_mapAliases, s, lpsAlias.szValue, false);
 }
 
@@ -641,7 +640,7 @@ bool ECConfigImpl::HasWarnings() {
 
 bool ECConfigImpl::HasErrors() {
 	/* First validate the configuration settings */
-	std::shared_lock<KC::shared_mutex> lset(m_settingsRWLock);
+	std::shared_lock lset(m_settingsRWLock);
 	for (const auto &s : m_mapSettings)
 		if (s.first.cs_flags & CONFIGSETTING_NONEMPTY)
 			if (!s.second || strlen(s.second) == 0)
@@ -651,7 +650,7 @@ bool ECConfigImpl::HasErrors() {
 
 int ECConfigImpl::dump_config(FILE *fp)
 {
-	std::lock_guard<KC::shared_mutex> lset(m_settingsRWLock);
+	std::lock_guard lset(m_settingsRWLock);
 	for (const auto &p : m_mapSettings) {
 		if (p.first.cs_flags & CONFIGSETTING_UNUSED)
 			continue;

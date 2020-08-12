@@ -12,6 +12,7 @@
 #include <iterator>
 #include <set>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -191,8 +192,8 @@ Tp join(InputIterator first, InputIterator last, Tp sep)
 }
 
 extern KC_EXPORT std::string format(const char *fmt, ...) KC_LIKE_PRINTF(1, 2);
-extern KC_EXPORT bool kc_starts_with(const std::string &, const string_view &);
-extern KC_EXPORT bool kc_ends_with(const std::string &, const string_view &);
+extern KC_EXPORT bool kc_starts_with(const std::string &, const std::string_view &);
+extern KC_EXPORT bool kc_ends_with(const std::string &, const std::string_view &);
 
 template<typename T, typename U> bool kc_istarts_with(T &&a, U &&prefix)
 {
@@ -240,7 +241,7 @@ kc_join(const C &v, const char *sep, F &&func)
 }
 
 extern KC_EXPORT std::string base64_encode(const void *, unsigned int);
-extern KC_EXPORT std::string base64_decode(const string_view &);
+extern KC_EXPORT std::string base64_decode(const std::string_view &);
 extern KC_EXPORT std::string zcp_md5_final_hex(MD5_CTX *);
 extern KC_EXPORT std::string string_strip_crlf(const char *);
 extern KC_EXPORT bool SymmetricIsCrypted(const char *);

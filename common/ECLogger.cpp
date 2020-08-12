@@ -227,7 +227,7 @@ ECLogger_File::ECLogger_File(unsigned int max_ll, bool add_timestamp,
 
 ECLogger_File::~ECLogger_File() {
 	// not required at this stage but only added here for consistency
-	std::shared_lock<KC::shared_mutex> lh(handle_lock);
+	std::shared_lock lh(handle_lock);
 	char pb[LOG_PFXSIZE];
 
 	if (prevcount > 1)
@@ -288,8 +288,7 @@ static char *EmitLevel(unsigned int loglevel, char *b, size_t z)
 }
 
 void ECLogger_File::Reset() {
-	std::lock_guard<KC::shared_mutex> lh(handle_lock);
-
+	std::lock_guard lh(handle_lock);
 	if (fh == stderr || fnClose == nullptr || fnOpen == nullptr)
 		return;
 	if (fh != nullptr)
@@ -312,7 +311,7 @@ void ECLogger_File::Reset() {
 }
 
 int ECLogger_File::GetFileDescriptor() {
-	std::shared_lock<KC::shared_mutex> lh(handle_lock);
+	std::shared_lock lh(handle_lock);
 	if (fh != nullptr && fnFileno != nullptr)
 		return fnFileno(fh);
 	return -1;
@@ -365,7 +364,7 @@ char *ECLogger_File::DoPrefix(char *buffer, size_t z)
 bool ECLogger_File::DupFilter(unsigned int loglevel, const char *message)
 {
 	bool exit_with_true = false;
-	std::shared_lock<KC::shared_mutex> lr_dup(dupfilter_lock);
+	std::shared_lock lr_dup(dupfilter_lock);
 	if (strncmp(prevmsg, message, sizeof(prevmsg)) == 0) {
 		++prevcount;
 
@@ -377,12 +376,12 @@ bool ECLogger_File::DupFilter(unsigned int loglevel, const char *message)
 		return true;
 
 	if (prevcount > 1) {
-		std::shared_lock<KC::shared_mutex> lr_handle(handle_lock);
+		std::shared_lock lr_handle(handle_lock);
 		char pb[LOG_PFXSIZE], el[LOG_LVLSIZE];
 		fnPrintf(fh, "%s%sPrevious message logged %d times\n", DoPrefix(pb, sizeof(pb)), EmitLevel(prevloglevel, el, sizeof(el)), prevcount);
 	}
 
-	std::lock_guard<KC::shared_mutex> lw_dup(dupfilter_lock);
+	std::lock_guard lw_dup(dupfilter_lock);
 	prevloglevel = loglevel;
 	HX_strlcpy(prevmsg, message, sizeof(prevmsg));
 	prevcount = 0;
@@ -396,7 +395,7 @@ void ECLogger_File::log(unsigned int loglevel, const char *message)
 	if (DupFilter(loglevel, message))
 		return;
 
-	std::shared_lock<KC::shared_mutex> lh(handle_lock);
+	std::shared_lock lh(handle_lock);
 	if (fh == nullptr)
 		return;
 	char pb[LOG_PFXSIZE], el[LOG_LVLSIZE];

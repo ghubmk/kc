@@ -4,7 +4,9 @@
  */
 #pragma once
 #include <list>
+#include <shared_mutex>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 #include <kopano/zcdefs.h>
@@ -37,9 +39,9 @@ public:
 	HRESULT HrEnableTLS();
 	KC_HIDDEN HRESULT HrGets(char *buf, size_t bufsize, size_t *have_read);
 	HRESULT HrReadLine(std::string &buf, size_t maxbuf = 65536);
-	HRESULT HrWriteString(const string_view &);
+	HRESULT HrWriteString(const std::string_view &);
 	HRESULT HrWriteLine(const char *buf);
-	HRESULT HrWriteLine(const string_view &);
+	HRESULT HrWriteLine(const std::string_view &);
 	KC_HIDDEN HRESULT HrReadBytes(char *buf, size_t len);
 	HRESULT HrReadBytes(std::string *buf, size_t len);
 	HRESULT HrReadAndDiscardBytes(size_t);
@@ -55,7 +57,7 @@ public:
 private:
 	int fd;
 	SSL *lpSSL = nullptr;
-	static shared_mutex ctx_lock;
+	static std::shared_mutex ctx_lock;
 	static SSL_CTX *lpCTX;
 	char peer_atxt[280];
 	struct sockaddr_storage peer_sockaddr;

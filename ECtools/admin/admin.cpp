@@ -2487,9 +2487,7 @@ int main(int argc, char **argv)
 			fprintf(stderr, "A company must be specified (-I)\n");
 			goto exit;
 		}
-#if __cplusplus >= 201700L
 		[[fallthrough]];
-#endif
 
 	case MODE_UPDATE_COMPANY:
 	case MODE_DELETE_COMPANY:

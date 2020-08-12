@@ -200,7 +200,6 @@ public:
 		return erSuccess;
 	}
 
-#ifdef KC_USES_CXX17
 	ECRESULT AddCacheItem(const key_type &key, mapped_type &&value)
 	{
 		if (MaxSize() == 0)
@@ -226,7 +225,6 @@ public:
 		UpdateCache(0.05);
 		return erSuccess;
 	}
-#endif
 
 	// Used in ECCacheManager::SetCell, where the content of a cache item is modified.
 	void AddToSize(int64_t ulSize)

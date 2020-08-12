@@ -3,9 +3,7 @@
  * Copyright 2019, Kopano and its licensors
  */
 #include <string>
-#if __cplusplus >= 201700L
-#	include <string_view>
-#endif
+#include <string_view>
 #include <cstdio>
 #include <cstdlib>
 #include <mapidefs.h>
@@ -17,12 +15,6 @@
 #include <kopano/stringutil.h>
 #include <kopano/charset/convert.h>
 #include "kcore.hpp"
-
-#if __cplusplus >= 201700L
-using std::string_view;
-#else
-using string_view = std::string;
-#endif
 
 using namespace KC;
 
@@ -55,7 +47,7 @@ struct cabEntryID { /* from ZCABData.h */
 	const char *original_entryid() const { return reinterpret_cast<const char *>(this) + offsetof(cabEntryID, offset) + sizeof(offset); }
 };
 
-static void try_entryid(const string_view &eid, unsigned int level);
+static void try_entryid(const std::string_view &eid, unsigned int level);
 
 KC_DEFINE_GUID(MUIDEMSAB,
 0xc840a7dc, 0x42c0, 0x1a10, 0xb4, 0xb9, 0x08, 0x00, 0x2b, 0x2f, 0xe1, 0x82);
@@ -112,7 +104,7 @@ static void dump_guid_withvar(const GUID &g)
 #undef F
 }
 
-static void try_guid(const string_view &s, unsigned int i)
+static void try_guid(const std::string_view &s, unsigned int i)
 {
 	if (s.size() != sizeof(GUID)) {
 		printf("%-*sNot a GUID (not 16 bytes)\n", mkind(i), "");
@@ -125,7 +117,7 @@ static void try_guid(const string_view &s, unsigned int i)
 	printf("\n");
 }
 
-static void try_af1(const string_view &s, unsigned int i)
+static void try_af1(const std::string_view &s, unsigned int i)
 {
 	if (s.size() < 4) {
 		printf("%-*sNot AF1 form: shorter than 4 bytes\n", mkind(i), "");
@@ -148,7 +140,7 @@ static void try_af1(const string_view &s, unsigned int i)
 	printf("\n");
 }
 
-static void try_af2(const string_view &s, unsigned int i)
+static void try_af2(const std::string_view &s, unsigned int i)
 {
 	if (s.size() >= 4 + sizeof(GUID)) {
 		printf("%-*sFulfills AF2 form (at least 20 bytes)\n", mkind(i), "");
@@ -162,7 +154,7 @@ static void try_af2(const string_view &s, unsigned int i)
 	}
 }
 
-static void try_eidv1(const string_view &s, unsigned int i)
+static void try_eidv1(const std::string_view &s, unsigned int i)
 {
 	if (s.size() < sizeof(EID)) {
 		printf("%-*sNot a ZCP/KC EID v1: have %zu bytes, expected at least %zu bytes\n",
@@ -189,7 +181,7 @@ static void try_eidv1(const string_view &s, unsigned int i)
 	printf(" b:%s\n", bin2hex(sizeof(eid->uniqueId), &eid->uniqueId).c_str());
 }
 
-static void try_eidv0(const string_view &s, unsigned int i)
+static void try_eidv0(const std::string_view &s, unsigned int i)
 {
 	if (s.size() < sizeof(EID_V0)) {
 		printf("%-*sNot a ZCP/KC EID v0: have %zu bytes, expected at least %zu bytes\n",
@@ -214,7 +206,7 @@ static void try_eidv0(const string_view &s, unsigned int i)
 	printf("%-*sObject id: %u\n", mkind(i), "", get_unaligned_le32(&eid->ulId));
 }
 
-static void try_abeid(const string_view &s, unsigned int i)
+static void try_abeid(const std::string_view &s, unsigned int i)
 {
 	if (s.size() < sizeof(ABEID_FIXED)) {
 		printf("%-*sNot a ZCP/KC ABEID: have %zu bytes, expected at least %zu bytes\n",
@@ -244,11 +236,11 @@ static void try_abeid(const string_view &s, unsigned int i)
 	int xtsize = s.size() - sizeof(*eid);
 	if (xtsize > 0) {
 		printf("%-*sExtern id: b:%s\n", mkind(i), "", bin2hex(xtsize, eid->szExId).c_str());
-		try_entryid(string_view(eid->szExId, xtsize), i + 1);
+		try_entryid(std::string_view(eid->szExId, xtsize), i + 1);
 	}
 }
 
-static void try_cabentryid(const string_view &s, unsigned int i)
+static void try_cabentryid(const std::string_view &s, unsigned int i)
 {
 	if (s.size() < sizeof(cabEntryID)) {
 		printf("%-*sNot a ZCP/KC cabEntryID: have %zu bytes, expected at least %zu bytes\n",
@@ -274,11 +266,11 @@ static void try_cabentryid(const string_view &s, unsigned int i)
 	if (xtsize > 0) {
 		auto xtptr = eid->original_entryid();
 		printf("%-*sAnalyzing embedded entryid \"%s\":\n", mkind(i), "", bin2hex(xtsize, xtptr).c_str());
-		try_entryid(string_view(xtptr, xtsize), i + 1);
+		try_entryid(std::string_view(xtptr, xtsize), i + 1);
 	}
 }
 
-static void try_emsab(const string_view &s, unsigned int i)
+static void try_emsab(const std::string_view &s, unsigned int i)
 {
 	struct emsabid {
 		char flags[4];
@@ -305,7 +297,7 @@ static void try_emsab(const string_view &s, unsigned int i)
 	printf("%-*sX500DN: %.*s\n", mkind(i), "", static_cast<int>(s.size() - sizeof(emsabid)), eid->dn);
 }
 
-static void try_oneoff(const string_view &s, unsigned int i)
+static void try_oneoff(const std::string_view &s, unsigned int i)
 {
 	struct oopid {
 		char abflags[4];
@@ -366,7 +358,7 @@ static void try_oneoff(const string_view &s, unsigned int i)
 	printf("%-*sAddress: \"%s\"\n", mkind(i), "", convert_to<std::string>(email).c_str());
 }
 
-static void try_kcwrap(const string_view &s, unsigned int i)
+static void try_kcwrap(const std::string_view &s, unsigned int i)
 {
 	if (s.size() < sizeof(kc_muidwrap)) {
 		printf("%-*sNot a ZCP/KC wrapped store entryid: have %zu bytes, expected at least %zu bytes\n",
@@ -387,10 +379,10 @@ static void try_kcwrap(const string_view &s, unsigned int i)
 	int eidsize = s.data() + s.size() - m->original_entryid();
 	auto eidptr = m->original_entryid();
 	printf("%-*sAnalyzing embedded entryid \"%.*s\":\n", mkind(i), "", eidsize, eidptr);
-	try_entryid(string_view(eidptr, eidsize), i + 1);
+	try_entryid(std::string_view(eidptr, eidsize), i + 1);
 }
 
-static void try_entryid(const string_view &s, unsigned int i)
+static void try_entryid(const std::string_view &s, unsigned int i)
 {
 	try_af1(s, i);
 	try_af2(s, i);

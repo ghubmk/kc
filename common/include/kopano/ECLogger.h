@@ -9,6 +9,7 @@
 #include <cstdarg>
 #include <list>
 #include <memory>
+#include <shared_mutex>
 #include <string>
 #include <sys/types.h>
 #include <kopano/MAPIErrors.h>
@@ -191,7 +192,7 @@ class KC_EXPORT_DYCAST ECLogger_File KC_FINAL : public ECLogger {
 	typedef int (*fileno_func)(handle_type);
 	typedef int (*flush_func)(handle_type);
 
-	KC::shared_mutex handle_lock, dupfilter_lock;
+	std::shared_mutex handle_lock, dupfilter_lock;
 	handle_type fh;
 	std::string logname;
 	bool timestamp;

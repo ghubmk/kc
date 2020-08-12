@@ -10,6 +10,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <cerrno>
 #include <climits>
@@ -194,7 +195,7 @@ HRESULT IMAP::HrSplitInput(const std::string &strInput, std::vector<std::string>
  *
  * @return
  */
-HRESULT IMAP::HrSendGreeting(const KC::string_view &strHostString)
+HRESULT IMAP::HrSendGreeting(const std::string_view &strHostString)
 {
 	auto msg = "OK [" + GetCapabilityString(false) + "] IMAP gateway ready";
 	if (parseBool(lpConfig->GetSetting("server_hostname_greeting")))

@@ -7,6 +7,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 #include <list>
@@ -130,7 +131,7 @@ public:
 	virtual int getTimeoutMinutes() const override { return lpStore == nullptr ? 1 : 30; }
 	bool isIdle() const { return m_bIdleMode; }
 	bool isContinue() const { return m_bContinue; }
-	virtual HRESULT HrSendGreeting(const KC::string_view &host) override;
+	virtual HRESULT HrSendGreeting(const std::string_view &host) override;
 	virtual HRESULT HrCloseConnection(const std::string &quitmsg) override;
 	virtual HRESULT HrProcessCommand(const std::string &input) override;
 	virtual HRESULT HrProcessContinue(const std::string &input) override;

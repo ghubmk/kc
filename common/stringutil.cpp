@@ -15,6 +15,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 #include <cassert>
@@ -615,12 +616,12 @@ std::string format(const char *const fmt, ...) {
         return result;
 }
 
-bool kc_starts_with(const std::string &full, const string_view &prefix)
+bool kc_starts_with(const std::string &full, const std::string_view &prefix)
 {
 	return full.compare(0, prefix.size(), prefix) == 0;
 }
 
-bool kc_ends_with(const std::string &full, const string_view &prefix)
+bool kc_ends_with(const std::string &full, const std::string_view &prefix)
 {
 	size_t fz = full.size(), pz = prefix.size();
 	if (fz < pz)
@@ -671,7 +672,7 @@ std::string base64_encode(const void *bte, unsigned int in_len)
 	return ret;
 }
 
-std::string base64_decode(const string_view &encoded_string)
+std::string base64_decode(const std::string_view &encoded_string)
 {
 	int in_len = encoded_string.size(), i = 0, j = 0, in_ = 0;
 	unsigned char char_array_4[4], char_array_3[3];

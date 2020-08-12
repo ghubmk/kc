@@ -6,11 +6,7 @@
 #include <kopano/zcdefs.h>
 #include <kopano/platform.linux.h>
 #include <mutex>
-#include <shared_mutex>
 #include <string>
-#if __cplusplus >= 201700L
-#	include <string_view>
-#endif
 #include <type_traits>
 #include <cassert>
 #include <cstddef>
@@ -116,15 +112,6 @@ static inline uint32_t get_unaligned_le32(const uint32_t *p)
 	return le32_to_cpu(v);
 }
 
-#ifdef KC_USES_CXX17
-using shared_mutex = std::shared_mutex;
-using string_view = std::string_view;
-#else
-using shared_mutex = std::shared_timed_mutex;
-using string_view = std::string;
-#endif
-
-template<class Mutex> using shared_lock = std::shared_lock<Mutex>;
 typedef std::lock_guard<std::mutex> scoped_lock;
 typedef std::lock_guard<std::recursive_mutex> scoped_rlock;
 typedef std::unique_lock<std::mutex> ulock_normal;
