@@ -11,6 +11,7 @@
 #include <chrono>
 #include <list>
 #include <memory>
+#include <mutex>
 #include <new>
 #include <set>
 #include <string>
@@ -527,7 +528,7 @@ ECRESULT ECS3Attachment::LoadAttachmentInstance(struct soap *soap,
 	 */
 	cd.data = nullptr;
 
-	scoped_lock locker(m_config.m_cachelock);
+	std::lock_guard locker(m_config.m_cachelock);
 	m_config.m_cache[ins_id.siid] = {now_positive(), cd.size};
 	return ret;
 }
@@ -558,7 +559,7 @@ ECRESULT ECS3Attachment::LoadAttachmentInstance(const ext_siid &ins_id,
 	cd.sink = nullptr;
 	if (ret != erSuccess)
 		return ret;
-	scoped_lock locker(m_config.m_cachelock);
+	std::lock_guard locker(m_config.m_cachelock);
 	m_config.m_cache[ins_id.siid] = {now_positive(), cd.size};
 	*size_p = cd.size;
 	return ret;
@@ -612,7 +613,7 @@ ECRESULT ECS3Attachment::SaveAttachmentInstance(ext_siid &ins_id,
 	if (m_transact)
 		m_new_att.emplace(ins_id);
 	if (ret == erSuccess && cd.status == S3StatusOK) {
-		scoped_lock locker(m_config.m_cachelock);
+		std::lock_guard locker(m_config.m_cachelock);
 		m_config.m_cache[ins_id.siid] = {now_positive(), cd.size};
 	}
 	cd.data = NULL;
@@ -640,7 +641,7 @@ ECRESULT ECS3Attachment::SaveAttachmentInstance(ext_siid &ins_id,
 	if (m_transact)
 		m_new_att.emplace(ins_id);
 	if (ret == erSuccess && cd.status == S3StatusOK) {
-		scoped_lock locker(m_config.m_cachelock);
+		std::lock_guard locker(m_config.m_cachelock);
 		m_config.m_cache[ins_id.siid] = {now_positive(), cd.size};
 	}
 	cd.sink = NULL;
@@ -700,7 +701,7 @@ ECRESULT ECS3Attachment::del_marked_att(const ext_siid &ins_id)
 	ec_log_debug("S3: delete %s: %s", fn, m_config.DY_get_status_name(cd.status));
 	if (cd.status == S3StatusOK || cd.status == S3StatusHttpErrorNotFound) {
 		/* Delete successful, or did not exist before */
-		scoped_lock locker(m_config.m_cachelock);
+		std::lock_guard locker(m_config.m_cachelock);
 		m_config.m_cache[ins_id.siid] = {now_negative(), S3_NEGATIVE_ENTRY};
 	}
 	/* else { do not touch cache for network errors, etc. } */

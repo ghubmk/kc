@@ -2,6 +2,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  * Copyright 2005 - 2016 Zarafa and its licensors
  */
+#include <mutex>
 #include <kopano/platform.h>
 #include <mapicode.h>
 #include <mapix.h>
@@ -32,7 +33,7 @@ HRESULT SessionGroupData::Create(ECSESSIONGROUPID ecSessionGroupId, ECSessionGro
 HRESULT SessionGroupData::GetOrCreateNotifyMaster(ECNotifyMaster **lppMaster)
 {
 	HRESULT hr = hrSuccess;
-	scoped_rlock lock(m_hMutex);
+	std::lock_guard lock(m_hMutex);
 
 	if (!m_lpNotifyMaster)
 		hr = ECNotifyMaster::Create(this, &~m_lpNotifyMaster);

@@ -3,6 +3,7 @@
  * Copyright 2005 - 2016 Zarafa and its licensors
  */
 #include <memory>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <kopano/platform.h>
@@ -406,7 +407,7 @@ HRESULT ECGenericProp::GetLastError(HRESULT hResult, ULONG ulFlags, LPMAPIERROR 
 HRESULT ECGenericProp::SaveChanges(ULONG ulFlags)
 {
 	HRESULT			hr = hrSuccess;
-	scoped_rlock l_obj(m_hMutexMAPIObject);
+	std::lock_guard l_obj(m_hMutexMAPIObject);
 
 	if (!fModify)
 		return MAPI_E_NO_ACCESS;
@@ -572,7 +573,7 @@ HRESULT ECGenericProp::HrSetPropStorage(IECPropStorage *storage, BOOL fLoadProps
 
 HRESULT ECGenericProp::HrLoadEmptyProps()
 {
-	scoped_rlock lock(m_hMutexMAPIObject);
+	std::lock_guard lock(m_hMutexMAPIObject);
 	assert(!m_props_loaded);
 	assert(m_sMapiObject == NULL);
 	lstProps.clear(); /* release build has no asserts */
@@ -589,7 +590,7 @@ HRESULT ECGenericProp::HrLoadProps()
 	if(lpStorage == NULL)
 		return MAPI_E_CALL_FAILED;
 
-	scoped_rlock lock(m_hMutexMAPIObject);
+	std::lock_guard lock(m_hMutexMAPIObject);
 	if (m_props_loaded && !m_bReload)
 		goto exit; // already loaded
 	m_bLoading = true;
@@ -642,7 +643,7 @@ HRESULT ECGenericProp::HrLoadProp(ULONG ulPropTag)
 
 	ulPropTag = NormalizePropTag(ulPropTag);
 
-	scoped_rlock lock(m_hMutexMAPIObject);
+	std::lock_guard lock(m_hMutexMAPIObject);
 	if (!m_props_loaded || m_bReload) {
 		auto hr = HrLoadProps();
 		if(hr != hrSuccess)
@@ -878,7 +879,7 @@ HRESULT ECGenericProp::GetSingleInstanceId(ULONG *lpcbInstanceID,
 {
 	if (lpcbInstanceID == nullptr || lppInstanceID == nullptr)
 		return MAPI_E_INVALID_PARAMETER;
-	scoped_rlock lock(m_hMutexMAPIObject);
+	std::lock_guard lock(m_hMutexMAPIObject);
 	if (m_sMapiObject == NULL)
 		return MAPI_E_NOT_FOUND;
 	return Util::HrCopyEntryId(m_sMapiObject->cbInstanceID,
@@ -889,7 +890,7 @@ HRESULT ECGenericProp::GetSingleInstanceId(ULONG *lpcbInstanceID,
 HRESULT ECGenericProp::SetSingleInstanceId(ULONG cbInstanceID,
     const ENTRYID *lpInstanceID)
 {
-	scoped_rlock lock(m_hMutexMAPIObject);
+	std::lock_guard lock(m_hMutexMAPIObject);
 
 	if (m_sMapiObject == NULL)
 		return MAPI_E_NOT_FOUND;

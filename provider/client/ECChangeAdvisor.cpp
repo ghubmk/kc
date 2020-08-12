@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <iterator>
 #include <list>
+#include <mutex>
 #include <kopano/platform.h>
 #include <kopano/memory.hpp>
 #include <kopano/ECGuid.h>
@@ -185,7 +186,7 @@ HRESULT ECChangeAdvisor::UpdateState(IStream *lpStream)
 		return MAPI_E_INVALID_PARAMETER;
 
 	ULONG					ulVal = 0;
-	scoped_rlock lock(m_hConnectionLock);
+	std::lock_guard lock(m_hConnectionLock);
 
 	if (m_lpChangeAdviseSink == NULL && !(m_ulFlags & SYNC_CATCHUP))
 		return MAPI_E_UNCONFIGURED;
@@ -226,7 +227,7 @@ HRESULT ECChangeAdvisor::AddKeys(LPENTRYLIST lpEntryList)
 	SSyncState					*lpsSyncState = NULL;
 	ECLISTCONNECTION			listConnections;
 	ECLISTSYNCSTATE				listSyncStates;
-	scoped_rlock lock(m_hConnectionLock);
+	std::lock_guard lock(m_hConnectionLock);
 	ZLOG_DEBUG(m_lpLogger, "Adding %u keys", lpEntryList->cValues);
 
 	for (ULONG i = 0; hr == hrSuccess && i < lpEntryList->cValues; ++i) {
@@ -260,7 +261,7 @@ HRESULT ECChangeAdvisor::AddKeys(LPENTRYLIST lpEntryList)
 
 HRESULT ECChangeAdvisor::UpdateSyncState(syncid_t ulSyncId, changeid_t ulChangeId)
 {
-	scoped_rlock lock(m_hConnectionLock);
+	std::lock_guard lock(m_hConnectionLock);
 	auto iSyncState = m_mapSyncStates.find(ulSyncId);
 	if (iSyncState == m_mapSyncStates.cend())
 		return MAPI_E_INVALID_PARAMETER;
@@ -276,7 +277,7 @@ HRESULT ECChangeAdvisor::Reload(void *lpParam, ECSESSIONID /*newSessionId*/)
 	auto lpChangeAdvisor = static_cast<ECChangeAdvisor *>(lpParam);
 	ECLISTSYNCSTATE		listSyncStates;
 	ECLISTCONNECTION	listConnections;
-	scoped_rlock lock(lpChangeAdvisor->m_hConnectionLock);
+	std::lock_guard lock(lpChangeAdvisor->m_hConnectionLock);
 	if ((lpChangeAdvisor->m_ulFlags & SYNC_CATCHUP))
 		return hrSuccess;
 	/**

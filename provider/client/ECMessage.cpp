@@ -7,6 +7,7 @@
 #endif
 #include <algorithm>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -702,7 +703,7 @@ HRESULT ECMessage::GetAttachmentTable(ULONG ulFlags, LPMAPITABLE *lppTable)
 		PR_RENDERING_POSITION, PR_ATTACH_FILENAME_W, PR_ATTACH_METHOD,
 		PR_DISPLAY_NAME_W, PR_ATTACH_LONG_FILENAME_W}};
 	memory_ptr<SPropTagArray> lpPropTagArray;
-	scoped_rlock lock(m_hMutexMAPIObject);
+	std::lock_guard lock(m_hMutexMAPIObject);
 
 	if (!m_props_loaded) {
 		auto hr = HrLoadProps();
@@ -915,7 +916,7 @@ HRESULT ECMessage::GetRecipientTable(ULONG ulFlags, LPMAPITABLE *lppTable)
 		PR_ROWID, PR_DISPLAY_TYPE, PR_ENTRYID, PR_SPOOLER_STATUS,
 		PR_OBJECT_TYPE, PR_ADDRTYPE_W, PR_RESPONSIBILITY}};
 	memory_ptr<SPropTagArray> lpPropTagArray;
-	scoped_rlock lock(m_hMutexMAPIObject);
+	std::lock_guard lock(m_hMutexMAPIObject);
 
 	if (!m_props_loaded) {
 		auto hr = HrLoadProps();
@@ -1377,7 +1378,7 @@ HRESULT ECMessage::SaveRecips()
 	memory_ptr<SPropValue> lpObjIDs;
 	memory_ptr<unsigned int> lpulStatus;
 	ULONG				ulRealObjType;
-	scoped_rlock lock(m_hMutexMAPIObject);
+	std::lock_guard lock(m_hMutexMAPIObject);
 
 	// Get any changes and set it in the child list of this message
 	auto hr = lpRecips->HrGetAllWithStatus(&~lpRowSet, &~lpObjIDs, &~lpulStatus);
@@ -1445,7 +1446,7 @@ void ECMessage::RecursiveMarkDelete(MAPIOBJECT *lpObj) {
 
 BOOL ECMessage::HasAttachment()
 {
-	scoped_rlock lock(m_hMutexMAPIObject);
+	std::lock_guard lock(m_hMutexMAPIObject);
 
 	if (!m_props_loaded) {
 		auto hr = HrLoadProps();
@@ -1465,7 +1466,7 @@ HRESULT ECMessage::SyncAttachments()
 	rowset_ptr lpRowSet;
 	memory_ptr<SPropValue> lpObjIDs;
 	memory_ptr<unsigned int> lpulStatus;
-	scoped_rlock lock(m_hMutexMAPIObject);
+	std::lock_guard lock(m_hMutexMAPIObject);
 
 	// Get any changes and set it in the child list of this message
 	// Although we only need to know the deleted attachments, I also need to know the PR_ATTACH_NUM, which is in the rowset
@@ -1500,7 +1501,7 @@ HRESULT ECMessage::UpdateTable(ECMemTable *lpTable, ULONG objtype,
 {
 	SPropValue sKeyProp, sUniqueProp;
 	unsigned int cAllValues = 0, cValues = 0;
-	scoped_rlock lock(m_hMutexMAPIObject);
+	std::lock_guard lock(m_hMutexMAPIObject);
 
 	if (m_sMapiObject == nullptr)
 		return MAPI_E_INVALID_PARAMETER;
@@ -1555,7 +1556,7 @@ HRESULT ECMessage::UpdateTable(ECMemTable *lpTable, ULONG objtype,
 
 HRESULT ECMessage::SaveChanges(ULONG ulFlags)
 {
-	scoped_rlock lock(m_hMutexMAPIObject);
+	std::lock_guard lock(m_hMutexMAPIObject);
 
 	// could not have modified (easy way out of my bug)
 	if (!fModify)
@@ -2194,7 +2195,7 @@ HRESULT ECMessage::HrSaveChild(ULONG ulFlags, MAPIOBJECT *lpsMapiObject) {
 
 	SPropValue sKeyProp;
 	memory_ptr<SPropValue> lpProps;
-	scoped_rlock lock(m_hMutexMAPIObject);
+	std::lock_guard lock(m_hMutexMAPIObject);
 
 	if (lpAttachments == nullptr) {
 		object_ptr<IMAPITable> lpTable;

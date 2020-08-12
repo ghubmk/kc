@@ -39,7 +39,7 @@ template<> size_t GetCacheAdditionalSize(const LDAPCache::timed_sglist_t &t)
 
 bool LDAPCache::isObjectTypeCached(objectclass_t objclass)
 {
-	scoped_rlock biglock(m_hMutex);
+	std::lock_guard biglock(m_hMutex);
 
 	switch (objclass) {
 	case OBJECTCLASS_USER:
@@ -75,7 +75,7 @@ void LDAPCache::setObjectDNCache(objectclass_t objclass, dn_cache_t &&lpCache)
 held_dn_cache_t
 LDAPCache::getObjectDNCache(LDAPUserPlugin *lpPlugin, objectclass_t objclass)
 {
-	std::unique_lock<std::recursive_mutex> biglock(m_hMutex);
+	std::unique_lock biglock(m_hMutex);
 
 	/* If item was not yet cached, make sure it is done now. */
 	if (!isObjectTypeCached(objclass) && lpPlugin)

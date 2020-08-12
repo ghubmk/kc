@@ -138,7 +138,7 @@ std::string ECStatsCollector::stats_as_text()
 	root["version"] = 2;
 
 	for (auto &i : m_StatData) {
-		scoped_lock lk(i.second.lock);
+		std::lock_guard lk(i.second.lock);
 		Json::Value leaf;
 		leaf["desc"] = i.second.description;
 		setleaf(leaf, i.second);
@@ -166,7 +166,7 @@ std::string ECStatsCollector::survey_as_text()
 		auto i = m_StatData.find(key);
 		if (i == m_StatData.cend())
 			continue;
-		scoped_lock lk(i->second.lock);
+		std::lock_guard lk(i->second.lock);
 		Json::Value leaf;
 		leaf["desc"] = i->second.description;
 		setleaf(leaf, i->second);
@@ -323,7 +323,7 @@ void ECStatsCollector::inc(SCName name, double inc)
 	if (iSD == m_StatData.cend())
 		return;
 	assert(iSD->second.type == SCT_REAL || iSD->second.type == SCT_REALGAUGE);
-	scoped_lock lk(iSD->second.lock);
+	std::lock_guard lk(iSD->second.lock);
 	iSD->second.data.f += inc;
 }
 
@@ -338,7 +338,7 @@ void ECStatsCollector::inc(SCName name, LONGLONG inc)
 	if (iSD == m_StatData.cend())
 		return;
 	assert(iSD->second.type == SCT_INTEGER || iSD->second.type == SCT_INTGAUGE);
-	scoped_lock lk(iSD->second.lock);
+	std::lock_guard lk(iSD->second.lock);
 	iSD->second.data.ll += inc;
 }
 
@@ -348,7 +348,7 @@ void ECStatsCollector::set_dbl(enum SCName name, double set)
 	if (iSD == m_StatData.cend())
 		return;
 	assert(iSD->second.type == SCT_REAL || iSD->second.type == SCT_REALGAUGE);
-	scoped_lock lk(iSD->second.lock);
+	std::lock_guard lk(iSD->second.lock);
 	iSD->second.data.f = set;
 }
 
@@ -358,7 +358,7 @@ void ECStatsCollector::set(enum SCName name, LONGLONG set)
 	if (iSD == m_StatData.cend())
 		return;
 	assert(iSD->second.type == SCT_INTEGER || iSD->second.type == SCT_INTGAUGE);
-	scoped_lock lk(iSD->second.lock);
+	std::lock_guard lk(iSD->second.lock);
 	iSD->second.data.ll = set;
 }
 
@@ -368,7 +368,7 @@ void ECStatsCollector::SetTime(enum SCName name, time_t set)
 	if (iSD == m_StatData.cend())
 		return;
 	assert(iSD->second.type == SCT_TIME);
-	scoped_lock lk(iSD->second.lock);
+	std::lock_guard lk(iSD->second.lock);
 	iSD->second.data.ts = set;
 }
 
@@ -378,7 +378,7 @@ void ECStatsCollector::set(SCName name, const std::string &s)
 	if (i == m_StatData.cend())
 		return;
 	assert(i->second.type == SCT_STRING);
-	scoped_lock lk(i->second.lock);
+	std::lock_guard lk(i->second.lock);
 	i->second.strdata = s;
 }
 
@@ -388,7 +388,7 @@ void ECStatsCollector::Max(SCName name, LONGLONG max)
 	if (iSD == m_StatData.cend())
 		return;
 	assert(iSD->second.type == SCT_INTEGER || iSD->second.type == SCT_INTGAUGE);
-	scoped_lock lk(iSD->second.lock);
+	std::lock_guard lk(iSD->second.lock);
 	if (iSD->second.data.ll < max)
 		iSD->second.data.ll = max;
 }
@@ -399,7 +399,7 @@ void ECStatsCollector::avg_dbl(SCName name, double add)
 	if (iSD == m_StatData.cend())
 		return;
 	assert(iSD->second.type == SCT_REALGAUGE);
-	scoped_lock lk(iSD->second.lock);
+	std::lock_guard lk(iSD->second.lock);
 	iSD->second.data.f = ((add - iSD->second.data.f) / iSD->second.avginc) + iSD->second.data.f;
 	++iSD->second.avginc;
 	if (iSD->second.avginc == 0)
@@ -412,7 +412,7 @@ void ECStatsCollector::avg(SCName name, LONGLONG add)
 	if (iSD == m_StatData.cend())
 		return;
 	assert(iSD->second.type == SCT_INTGAUGE);
-	scoped_lock lk(iSD->second.lock);
+	std::lock_guard lk(iSD->second.lock);
 	iSD->second.data.ll = ((add - iSD->second.data.ll) / iSD->second.avginc) + iSD->second.data.ll;
 	++iSD->second.avginc;
 	if (iSD->second.avginc == 0)
@@ -476,7 +476,7 @@ std::string ECStatsCollector::GetValue(const SCName &name)
 void ECStatsCollector::ForEachStat(void(callback)(const std::string &, const std::string &, const std::string &, void *), void *obj)
 {
 	for (auto &i : m_StatData) {
-		scoped_lock lk(i.second.lock);
+		std::lock_guard lk(i.second.lock);
 		callback(i.second.name, i.second.description, GetValue(i), obj);
 	}
 	std::lock_guard<std::mutex> lk(m_odm_lock);
@@ -486,7 +486,7 @@ void ECStatsCollector::ForEachStat(void(callback)(const std::string &, const std
 
 void ECStatsCollector::set(const std::string &name, const std::string &desc, int64_t v)
 {
-	scoped_lock lk(m_odm_lock);
+	std::lock_guard lk(m_odm_lock);
 	auto i = m_ondemand.find(name);
 	if (i != m_ondemand.cend()) {
 		assert(i->second.type == SCT_INTEGER);
@@ -500,7 +500,7 @@ void ECStatsCollector::set(const std::string &name, const std::string &desc, int
 
 void ECStatsCollector::setg(const std::string &name, const std::string &desc, int64_t v)
 {
-	scoped_lock lk(m_odm_lock);
+	std::lock_guard lk(m_odm_lock);
 	auto i = m_ondemand.find(name);
 	if (i != m_ondemand.cend()) {
 		assert(i->second.type == SCT_INTGAUGE);
@@ -514,7 +514,7 @@ void ECStatsCollector::setg(const std::string &name, const std::string &desc, in
 
 void ECStatsCollector::setg_dbl(const std::string &name, const std::string &desc, double v)
 {
-	scoped_lock lk(m_odm_lock);
+	std::lock_guard lk(m_odm_lock);
 	auto i = m_ondemand.find(name);
 	if (i != m_ondemand.cend()) {
 		assert(i->second.type == SCT_REALGAUGE);
@@ -529,7 +529,7 @@ void ECStatsCollector::setg_dbl(const std::string &name, const std::string &desc
 void ECStatsCollector::set(const std::string &name, const std::string &desc,
     const std::string &v)
 {
-	scoped_lock lk(m_odm_lock);
+	std::lock_guard lk(m_odm_lock);
 	auto i = m_ondemand.find(name);
 	if (i == m_ondemand.cend()) {
 		m_ondemand.emplace(name, ECStat2{desc, v, SCT_STRING});

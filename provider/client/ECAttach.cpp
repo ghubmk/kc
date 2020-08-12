@@ -2,6 +2,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  * Copyright 2005 - 2016 Zarafa and its licensors
  */
+#include <mutex>
 #include <kopano/platform.h>
 #include <kopano/memory.hpp>
 #include <mapiguid.h>
@@ -80,7 +81,7 @@ HRESULT ECAttach::OpenProperty(ULONG ulPropTag, LPCIID lpiid, ULONG ulInterfaceO
 	memory_ptr<SPropValue> lpPropAttachType;
 	ULONG ulAttachType = 0, ulObjId = 0;
 	bool fNew = false;
-	scoped_rlock lock(m_hMutexMAPIObject);
+	std::lock_guard lock(m_hMutexMAPIObject);
 
 	// Get the attachment method
 	if (HrGetOneProp(this, PR_ATTACH_METHOD, &~lpPropAttachType) == hrSuccess)
@@ -224,7 +225,7 @@ HRESULT ECAttach::CopyTo(ULONG ciidExclude, LPCIID rgiidExclude,
  */
 HRESULT ECAttach::HrSetRealProp(const SPropValue *lpProp)
 {
-	scoped_rlock lock(m_hMutexMAPIObject);
+	std::lock_guard lock(m_hMutexMAPIObject);
 
 	if (lpStorage == NULL)
 		return MAPI_E_NOT_FOUND;
@@ -239,7 +240,7 @@ HRESULT ECAttach::HrSaveChild(ULONG ulFlags, MAPIOBJECT *lpsMapiObject)
 		/* can only save messages in an attachment */
 		return MAPI_E_INVALID_OBJECT;
 
-	scoped_rlock lock(m_hMutexMAPIObject);
+	std::lock_guard lock(m_hMutexMAPIObject);
 	if (!m_sMapiObject) {
 		assert(m_sMapiObject != NULL);
 		m_sMapiObject.reset(new MAPIOBJECT(0, 0, MAPI_MESSAGE));

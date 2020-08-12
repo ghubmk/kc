@@ -71,7 +71,7 @@ class gtconv final {
 	public:
 	static std::unique_ptr<gtconv> &get_instance()
 	{
-		scoped_lock locker(m_lock);
+		std::lock_guard locker(m_lock);
 		if (m_instance == nullptr)
 			m_instance.reset(new gtconv);
 		return m_instance;
@@ -84,7 +84,7 @@ class gtconv final {
 	 * @return	The converted string.
 	 */
 	const wchar_t *convert(const char *lpsz) {
-		scoped_lock l_cache(m_hCacheLock);
+		std::lock_guard l_cache(m_hCacheLock);
 		auto insResult = m_cache.emplace(lpsz, L"");
 		if (insResult.second) /* successful insert, so not found in cache */
 			insResult.first->second = m_converter.convert_to<std::wstring>(lpsz, strlen(lpsz), "UTF-8");

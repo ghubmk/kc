@@ -5,6 +5,7 @@
 #include <kopano/platform.h>
 #include <chrono>
 #include <cstring>
+#include <mutex>
 #include <set>
 #include <pthread.h>
 #include "ECMAPI.h"
@@ -186,7 +187,7 @@ HRESULT ECNotificationManager::AddRequest(ECSESSIONID ecSessionId, struct soap *
 HRESULT ECNotificationManager::NotifyChange(ECSESSIONID ecSessionId)
 {
     // Simply mark the session in our set of active sessions
-	scoped_lock l_ses(m_mutexSessions);
+	std::lock_guard l_ses(m_mutexSessions);
 	m_setActiveSessions.emplace(ecSessionId);
 	m_condSessions.notify_all(); /* Wake up thread due to activity */
 	return hrSuccess;

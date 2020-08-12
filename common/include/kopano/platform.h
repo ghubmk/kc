@@ -112,8 +112,6 @@ static inline uint32_t get_unaligned_le32(const uint32_t *p)
 	return le32_to_cpu(v);
 }
 
-typedef std::lock_guard<std::mutex> scoped_lock;
-typedef std::lock_guard<std::recursive_mutex> scoped_rlock;
 typedef std::unique_lock<std::mutex> ulock_normal;
 typedef std::unique_lock<std::recursive_mutex> ulock_rec;
 

@@ -148,7 +148,7 @@ ECRESULT ECSearchFolders::SetSearchCriteria(unsigned int ulStoreId,
 // Gets the search criteria from in-memory
 ECRESULT ECSearchFolders::GetSearchCriteria(unsigned int ulStoreId, unsigned int ulFolderId, struct searchCriteria **lppSearchCriteria, unsigned int *lpulFlags)
 {
-	scoped_rlock l_sf(m_mutexMapSearchFolders);
+	std::lock_guard l_sf(m_mutexMapSearchFolders);
 
     // See if there are any searches for this store first
 	auto iterStore = m_mapSearchFolders.find(ulStoreId);
@@ -352,7 +352,7 @@ ECRESULT ECSearchFolders::UpdateSearchFolders(unsigned int ulStoreId, unsigned i
     ev.ulObjectId = ulObjId;
     ev.ulType = ulType;
 
-	scoped_rlock l_ev(m_mutexEvents);
+	std::lock_guard l_ev(m_mutexEvents);
     // Add the event to the queue
 	m_lstEvents.emplace_back(std::move(ev));
 	/*

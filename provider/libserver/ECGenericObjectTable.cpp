@@ -8,6 +8,7 @@
 #include <list>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -140,7 +141,7 @@ ECGenericObjectTable::~ECGenericObjectTable()
  */
 ECRESULT ECGenericObjectTable::SeekRow(unsigned int ulBookmark, int lSeekTo, int *lplRowsSought)
 {
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 	auto er = Populate();
 	if(er != erSuccess)
 		return er;
@@ -290,7 +291,7 @@ ECRESULT ECGenericObjectTable::FindRow(struct restrictTable *rt,
  */
 ECRESULT ECGenericObjectTable::GetRowCount(unsigned int *lpulRowCount, unsigned int *lpulCurrentRow)
 {
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 	auto er = Populate();
 	if(er != erSuccess)
 		return er;
@@ -343,7 +344,7 @@ ECRESULT ECGenericObjectTable::ReloadTable(enumReloadType eType)
 	bool bMVColsNew = false, bMVSortNew = false;
 	ECObjectTableList			listRows;
 	ECListInt					listMVPropTag;
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 
 	//Scan for MVI columns
 	for (gsoap_size_t i = 0; lpsPropTagArray != NULL && i < lpsPropTagArray->__size; ++i) {
@@ -437,7 +438,7 @@ ECRESULT ECGenericObjectTable::SetColumns(const struct propTagArray *lpsPropTags
 	//FIXME: check the lpsPropTags array, 0x????xxxx -> xxxx must be checked
 	// Remember the columns for later use (in QueryRows)
 	// This is a very very quick operation, as we only save the information.
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 
 	// Delete the old column set
 	soap_del_PointerTopropTagArray(&lpsPropTagArray);
@@ -463,7 +464,7 @@ ECRESULT ECGenericObjectTable::GetColumns(struct soap *soap, ULONG ulFlags, stru
 {
 	ECListInt			lstProps;
 	struct propTagArray *lpsPropTags;
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 
 	if(ulFlags & TBL_ALL_COLUMNS) {
 		// All columns were requested. Simply get a unique list of all the proptags used in all the objects in this table
@@ -510,7 +511,7 @@ ECRESULT ECGenericObjectTable::GetColumns(struct soap *soap, ULONG ulFlags, stru
 ECRESULT ECGenericObjectTable::ReloadKeyTable()
 {
 	ECObjectTableList listRows;
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 
 	// Get all the Row IDs from the ID map
 	for (const auto &p : mapObjects)
@@ -536,7 +537,7 @@ ECRESULT ECGenericObjectTable::SetSortOrder(const struct sortOrderArray *lpsSort
 	// The current row is reset to point to the row it was pointing to in the first place.
 	// This is pretty easy as it is pointing at the same object ID as it was before we
 	// reloaded.
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 
 	if (m_ulCategories == ulCategories && m_ulExpanded == ulExpanded &&
 	    lpsSortOrderArray != nullptr &&
@@ -685,7 +686,7 @@ ECRESULT ECGenericObjectTable::GetSortFlags(unsigned int ulPropTag, unsigned cha
 ECRESULT ECGenericObjectTable::Restrict(struct restrictTable *rt)
 {
 	ECRESULT er = erSuccess;
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 
 	if(lpsSortOrderArray == NULL) {
 		er = SetSortOrder(&sDefaultSortOrder, 0, 0);
@@ -924,7 +925,7 @@ ECRESULT ECGenericObjectTable::QueryRows(struct soap *soap, unsigned int ulRowCo
 	// specified by SetColumns
 	struct rowSet	*lpRowSet = NULL;
 	ECObjectTableList	ecRowList;
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 
 	auto er = Populate();
 	if (er != erSuccess)
@@ -957,13 +958,13 @@ ECRESULT ECGenericObjectTable::QueryRows(struct soap *soap, unsigned int ulRowCo
 
 ECRESULT ECGenericObjectTable::CreateBookmark(unsigned int* lpulbkPosition)
 {
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 	return lpKeyTable->CreateBookmark(lpulbkPosition);
 }
 
 ECRESULT ECGenericObjectTable::FreeBookmark(unsigned int ulbkPosition)
 {
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 	return lpKeyTable->FreeBookmark(ulbkPosition);
 }
 
@@ -976,7 +977,7 @@ ECRESULT ECGenericObjectTable::ExpandRow(struct soap *soap, xsd__base64Binary sI
     ECObjectTableList lstUnhidden;
     unsigned int ulRowsLeft = 0;
     struct rowSet *lpRowSet = NULL;
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 
 	auto er = Populate();
     if(er != erSuccess)
@@ -1036,7 +1037,7 @@ ECRESULT ECGenericObjectTable::CollapseRow(xsd__base64Binary sInstanceKey, unsig
     ECCategoryMap::const_iterator iterCategory;
     ECCategory *lpCategory = NULL;
     ECObjectTableList lstHidden;
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 
 	if (sInstanceKey.__size != sizeof(sObjectTableKey))
 		return KCERR_INVALID_PARAMETER;
@@ -1282,7 +1283,7 @@ ECRESULT ECGenericObjectTable::UpdateRows(unsigned int ulType,
 	std::vector<unsigned int> lstFilteredIds;
 	ECObjectTableList ecRowsItem, ecRowsDeleted;
 	sObjectTableKey		sRow;
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 	const std::vector<unsigned int> *lstObjId = &lstObjId_in;
 
 	// Perform security checks for this object
@@ -1924,7 +1925,7 @@ void ECGenericObjectTable::SetTableId(unsigned int ulTableId)
 
 ECRESULT ECGenericObjectTable::Clear()
 {
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 
 	// Clear old entries
 	mapObjects.clear();
@@ -1944,7 +1945,7 @@ ECRESULT ECGenericObjectTable::Load()
 
 ECRESULT ECGenericObjectTable::Populate()
 {
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 	if(m_bPopulated)
 		return erSuccess;
 	m_bPopulated = true;
@@ -2526,7 +2527,7 @@ ECRESULT ECGenericObjectTable::GetPropCategory(struct soap *soap, unsigned int u
 size_t ECGenericObjectTable::GetObjectSize()
 {
 	size_t ulSize = sizeof(*this);
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 
 	ulSize += SortOrderArraySize(lpsSortOrderArray);
 	ulSize += PropTagArraySize(lpsPropTagArray);

@@ -1036,7 +1036,7 @@ ECRESULT ECSessionManager::GetNewSourceKey(SOURCEKEY* lpSourceKey){
 	if (lpSourceKey == NULL)
 		return KCERR_INVALID_PARAMETER;
 
-	scoped_lock l_inc(m_hSourceKeyAutoIncrementMutex);
+	std::lock_guard l_inc(m_hSourceKeyAutoIncrementMutex);
 	if (m_ulSourceKeyQueue == 0) {
 		auto er = SaveSourceKeyAutoIncrement(m_ullSourceKeyAutoIncrement + 50);
 		if (er != erSuccess)
@@ -1061,7 +1061,7 @@ ECRESULT ECSessionManager::SaveSourceKeyAutoIncrement(unsigned long long ullNewS
 
 BOOL ECSessionManager::IsSessionPersistent(ECSESSIONID sessionID)
 {
-	scoped_lock lock(m_mutexPersistent);
+	std::lock_guard lock(m_mutexPersistent);
 	auto iterSession = m_mapPersistentBySession.find(sessionID);
 	return iterSession != m_mapPersistentBySession.cend();
 }
@@ -1079,7 +1079,7 @@ ECRESULT ECSessionManager::GetNewSequence(SEQUENCE seq, unsigned long long *lpll
 	else
 		return KCERR_INVALID_PARAMETER;
 
-	scoped_lock lock(m_hSeqMutex);
+	std::lock_guard lock(m_hSeqMutex);
 	if (m_ulSeqIMAPQueue == 0)
 	{
 		er = m_lpDatabase->DoSequence(strSeqName, 50, &m_ulSeqIMAP);
@@ -1107,7 +1107,7 @@ ECRESULT ECSessionManager::CreateDatabaseConnection()
 ECRESULT ECSessionManager::SubscribeTableEvents(TABLE_ENTRY::TABLE_TYPE ulType, unsigned int ulTableRootObjectId, unsigned int ulObjectType, unsigned int ulObjectFlags, ECSESSIONID sessionID)
 {
     TABLESUBSCRIPTION sSubscription;
-	scoped_lock lock(m_mutexTableSubscriptions);
+	std::lock_guard lock(m_mutexTableSubscriptions);
 
     sSubscription.ulType = ulType;
     sSubscription.ulRootObjectId = ulTableRootObjectId;
@@ -1120,7 +1120,7 @@ ECRESULT ECSessionManager::SubscribeTableEvents(TABLE_ENTRY::TABLE_TYPE ulType, 
 ECRESULT ECSessionManager::UnsubscribeTableEvents(TABLE_ENTRY::TABLE_TYPE ulType, unsigned int ulTableRootObjectId, unsigned int ulObjectType, unsigned int ulObjectFlags, ECSESSIONID sessionID)
 {
     TABLESUBSCRIPTION sSubscription;
-	scoped_lock lock(m_mutexTableSubscriptions);
+	std::lock_guard lock(m_mutexTableSubscriptions);
 
     sSubscription.ulType = ulType;
     sSubscription.ulRootObjectId = ulTableRootObjectId;
@@ -1144,14 +1144,14 @@ ECRESULT ECSessionManager::UnsubscribeTableEvents(TABLE_ENTRY::TABLE_TYPE ulType
 // Subscribes for all object notifications in store ulStoreID for session group sessionID
 ECRESULT ECSessionManager::SubscribeObjectEvents(unsigned int ulStoreId, ECSESSIONGROUPID sessionID)
 {
-	scoped_lock lock(m_mutexObjectSubscriptions);
+	std::lock_guard lock(m_mutexObjectSubscriptions);
 	m_mapObjectSubscriptions.emplace(ulStoreId, sessionID);
     return erSuccess;
 }
 
 ECRESULT ECSessionManager::UnsubscribeObjectEvents(unsigned int ulStoreId, ECSESSIONGROUPID sessionID)
 {
-	scoped_lock lock(m_mutexObjectSubscriptions);
+	std::lock_guard lock(m_mutexObjectSubscriptions);
 	auto i = m_mapObjectSubscriptions.find(ulStoreId);
 	while (i != m_mapObjectSubscriptions.cend() && i->first == ulStoreId &&
 	       i->second != sessionID)

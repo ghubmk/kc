@@ -168,7 +168,7 @@ HRESULT ECNotifyClient::RegisterAdvise(ULONG cbKey, LPBYTE lpKey, ULONG ulEventM
 #endif
 
 	{
-		scoped_rlock biglock(m_hMutex);
+		std::lock_guard biglock(m_hMutex);
 		m_mapAdvise.emplace(ulConnection, std::move(pEcAdvise));
 	}
 
@@ -204,7 +204,7 @@ HRESULT ECNotifyClient::RegisterChangeAdvise(ULONG ulSyncId, ULONG ulChangeId,
 	 * Setup our maps to receive the notifications
 	 */
 	{
-		scoped_rlock biglock(m_hMutex);
+		std::lock_guard biglock(m_hMutex);
 		m_mapChangeAdvise.emplace(ulConnection, std::move(pEcAdvise));
 	}
 
@@ -227,7 +227,7 @@ HRESULT ECNotifyClient::UnRegisterAdvise(ULONG ulConnection)
 		return hr;
 
 	// Remove notify from list
-	scoped_rlock lock(m_hMutex);
+	std::lock_guard lock(m_hMutex);
 	auto iIterAdvise = m_mapAdvise.find(ulConnection);
 	if (iIterAdvise != m_mapAdvise.cend()) {
 		if(iIterAdvise->second->ulSupportConnection)
@@ -344,7 +344,7 @@ HRESULT ECNotifyClient::Unadvise(const ECLISTCONNECTION &lstConnections)
 // session has been reset.
 HRESULT ECNotifyClient::Reregister(ULONG ulConnection, ULONG cbKey, LPBYTE lpKey)
 {
-	scoped_rlock biglock(m_hMutex);
+	std::lock_guard biglock(m_hMutex);
 	auto iter = m_mapAdvise.find(ulConnection);
 	if (iter == m_mapAdvise.cend())
 		return MAPI_E_NOT_FOUND;
@@ -371,7 +371,7 @@ HRESULT ECNotifyClient::Reregister(ULONG ulConnection, ULONG cbKey, LPBYTE lpKey
 
 HRESULT ECNotifyClient::ReleaseAll()
 {
-	scoped_rlock biglock(m_hMutex);
+	std::lock_guard biglock(m_hMutex);
 	for (auto &p : m_mapAdvise)
 		p.second->lpAdviseSink.reset();
 	return hrSuccess;
@@ -395,7 +395,7 @@ HRESULT ECNotifyClient::NotifyReload()
 	//m_lpTransport->HrEnsureSession();
 
 	// Don't send the notification while we are locked
-	scoped_rlock biglock(m_hMutex);
+	std::lock_guard biglock(m_hMutex);
 	for (const auto &p : m_mapAdvise)
 		if (p.second->cbKey == 4)
 			Notify(p.first, notifications);

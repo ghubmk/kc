@@ -3,6 +3,7 @@
  * Copyright 2005 - 2016 Zarafa and its licensors
  */
 #include <list>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -133,7 +134,7 @@ HRESULT ECMemTable::HrGetAllWithStatus(LPSRowSet *lppRowSet, LPSPropValue *lppID
 
 HRESULT ECMemTable::HrGetRowID(LPSPropValue lpRow, LPSPropValue *lppID)
 {
-	scoped_rlock l_data(m_hDataMutex);
+	std::lock_guard l_data(m_hDataMutex);
 
 	if (lpRow->ulPropTag != ulRowPropTag)
 		return MAPI_E_INVALID_PARAMETER;
@@ -175,7 +176,7 @@ HRESULT ECMemTable::HrGetRowData(LPSPropValue lpRow, ULONG *lpcValues, LPSPropVa
 // to the storage.
 HRESULT ECMemTable::HrSetClean()
 {
-	scoped_rlock l_data(m_hDataMutex);
+	std::lock_guard l_data(m_hDataMutex);
 
 	for (auto iterRows = mapRows.begin(); iterRows != mapRows.end(); ) {
 		if(iterRows->second.fDeleted) {
@@ -192,7 +193,7 @@ HRESULT ECMemTable::HrSetClean()
 
 HRESULT ECMemTable::HrUpdateRowID(LPSPropValue lpId, LPSPropValue lpProps, ULONG cValues)
 {
-	scoped_rlock l_data(m_hDataMutex);
+	std::lock_guard l_data(m_hDataMutex);
 
 	auto lpUniqueProp = PCpropFindProp(lpProps, cValues, ulRowPropTag);
 	if (lpUniqueProp == NULL)
@@ -223,7 +224,7 @@ HRESULT ECMemTable::HrUpdateRowID(LPSPropValue lpId, LPSPropValue lpProps, ULONG
 HRESULT ECMemTable::HrModifyRow(ULONG ulUpdateType, const SPropValue *lpsID,
     const SPropValue *lpPropVals, ULONG cValues)
 {
-	scoped_rlock l_data(m_hDataMutex);
+	std::lock_guard l_data(m_hDataMutex);
 
 	auto lpsRowID = PCpropFindProp(lpPropVals, cValues, ulRowPropTag);
 	if (lpsRowID == NULL)
@@ -301,7 +302,7 @@ HRESULT ECMemTable::HrModifyRow(ULONG ulUpdateType, const SPropValue *lpsID,
 HRESULT ECMemTable::HrGetView(const ECLocale &locale, ULONG ulFlags, ECMemTableView **lppView)
 {
 	ECMemTableView *lpView = NULL;
-	scoped_rlock l_data(m_hDataMutex);
+	std::lock_guard l_data(m_hDataMutex);
 	auto hr = ECMemTableView::Create(this, locale, ulFlags, &lpView);
 	if (hr != hrSuccess)
 		return hr;
@@ -313,7 +314,7 @@ HRESULT ECMemTable::HrGetView(const ECLocale &locale, ULONG ulFlags, ECMemTableV
 
 HRESULT ECMemTable::HrDeleteAll()
 {
-	scoped_rlock l_data(m_hDataMutex);
+	std::lock_guard l_data(m_hDataMutex);
 	for (auto &rowp : mapRows) {
 		rowp.second.fDeleted = true;
 		rowp.second.fDirty = rowp.second.fNew = false;
@@ -325,7 +326,7 @@ HRESULT ECMemTable::HrDeleteAll()
 
 HRESULT ECMemTable::HrClear()
 {
-	scoped_rlock l_data(m_hDataMutex);
+	std::lock_guard l_data(m_hDataMutex);
 	// Clear list
 	mapRows.clear();
 

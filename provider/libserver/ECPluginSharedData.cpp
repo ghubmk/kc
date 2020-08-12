@@ -43,7 +43,7 @@ void ECPluginSharedData::GetSingleton(ECPluginSharedData **lppSingleton,
     std::shared_ptr<ECConfig> parent, std::shared_ptr<ECStatsCollector> sc,
     bool bHosted, bool bDistributed)
 {
-	scoped_lock lock(m_SingletonLock);
+	std::lock_guard lock(m_SingletonLock);
 
 	if (!m_lpSingleton)
 		m_lpSingleton = new ECPluginSharedData(std::move(parent), std::move(sc), bHosted, bDistributed);
@@ -53,13 +53,13 @@ void ECPluginSharedData::GetSingleton(ECPluginSharedData **lppSingleton,
 
 void ECPluginSharedData::AddRef()
 {
-	scoped_lock lock(m_SingletonLock);
+	std::lock_guard lock(m_SingletonLock);
 	++m_ulRefCount;
 }
 
 void ECPluginSharedData::Release()
 {
-	scoped_lock lock(m_SingletonLock);
+	std::lock_guard lock(m_SingletonLock);
 	if (!--m_ulRefCount) {
 		delete m_lpSingleton;
 		m_lpSingleton = NULL;
@@ -69,7 +69,7 @@ void ECPluginSharedData::Release()
 ECConfig *ECPluginSharedData::CreateConfig(const configsetting_t *lpDefaults,
     const char *const *lpszDirectives)
 {
-	scoped_lock lock(m_CreateConfigLock);
+	std::lock_guard lock(m_CreateConfigLock);
 
 	if (m_lpConfig != nullptr)
 		return m_lpConfig;

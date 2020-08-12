@@ -4,6 +4,7 @@
  */
 #include <kopano/platform.h>
 #include <algorithm>
+#include <mutex>
 #include <utility>
 #include <vector>
 #include <cassert>
@@ -233,7 +234,7 @@ ECRESULT ECKeyTable::UpdateRow_Delete(const sObjectTableKey *lpsRowItem,
     std::vector<ECSortCol> &&dat, sObjectTableKey *lpsPrevRow, bool fHidden,
     UpdateType *lpulAction)
 {
-	scoped_rlock biglock(mLock);
+	std::lock_guard biglock(mLock);
 
 	// Find the row by ID
 	auto iterMap = mapRow.find(*lpsRowItem);
@@ -340,7 +341,7 @@ ECRESULT ECKeyTable::UpdateRow_Modify(const sObjectTableKey *lpsRowItem,
 	ECTableRow *lpNewRow = nullptr;
 	unsigned int fLeft = 0;
 	bool fRelocateCursor = false;
-	scoped_rlock biglock(mLock);
+	std::lock_guard biglock(mLock);
 
 	auto lpRow = lpRoot;
 	// Find the row by id (see if we already have the row)
@@ -482,7 +483,7 @@ ECRESULT ECKeyTable::UpdateRow(UpdateType ulType,
  */
 ECRESULT ECKeyTable::Clear()
 {
-	scoped_rlock biglock(mLock);
+	std::lock_guard biglock(mLock);
 	ECTableRow *lpRow = lpRoot, *lpParent = nullptr;
 
 	/* Depth-first deletion of all nodes (excluding root) */
@@ -517,7 +518,7 @@ ECRESULT ECKeyTable::Clear()
 
 ECRESULT ECKeyTable::SeekId(const sObjectTableKey *lpsRowItem)
 {
-	scoped_rlock biglock(mLock);
+	std::lock_guard biglock(mLock);
 	auto iterMap = mapRow.find(*lpsRowItem);
 	if (iterMap == mapRow.cend())
 		return KCERR_NOT_FOUND;
@@ -528,7 +529,7 @@ ECRESULT ECKeyTable::SeekId(const sObjectTableKey *lpsRowItem)
 ECRESULT ECKeyTable::GetBookmark(unsigned int ulbkPosition, int* lpbkPosition)
 {
 	unsigned int ulCurrPosition = 0;
-	scoped_rlock biglock(mLock);
+	std::lock_guard biglock(mLock);
 
 	auto iPosition = m_mapBookmarks.find(ulbkPosition);
 	if (iPosition == m_mapBookmarks.cend())
@@ -546,7 +547,7 @@ ECRESULT ECKeyTable::CreateBookmark(unsigned int* lpulbkPosition)
 {
 	sBookmarkPosition	sbkPosition;
 	unsigned int ulbkPosition = 0, ulRowCount = 0;
-	scoped_rlock biglock(mLock);
+	std::lock_guard biglock(mLock);
 
 	// Limit of bookmarks
 	if (m_mapBookmarks.size() >= BOOKMARK_LIMIT)
@@ -565,7 +566,7 @@ ECRESULT ECKeyTable::CreateBookmark(unsigned int* lpulbkPosition)
 
 ECRESULT ECKeyTable::FreeBookmark(unsigned int ulbkPosition)
 {
-	scoped_rlock biglock(mLock);
+	std::lock_guard biglock(mLock);
 	auto iPosition = m_mapBookmarks.find(ulbkPosition);
 	if (iPosition == m_mapBookmarks.cend())
 		return KCERR_INVALID_BOOKMARK;
@@ -593,7 +594,7 @@ ECRESULT ECKeyTable::SeekRow(unsigned int lbkOrgin, int lSeekTo, int *lplRowsSou
 	int lDestRow = 0;
 	unsigned int ulCurrentRow = 0, ulRowCount = 0;
 	ECTableRow *lpRow = NULL;
-	scoped_rlock biglock(mLock);
+	std::lock_guard biglock(mLock);
 
 	auto er = GetRowCount(&ulRowCount, &ulCurrentRow);
 	if(er != erSuccess)
@@ -683,7 +684,7 @@ ECRESULT ECKeyTable::SeekRow(unsigned int lbkOrgin, int lSeekTo, int *lplRowsSou
 
 ECRESULT ECKeyTable::GetRowCount(unsigned int *lpulRowCount, unsigned int *lpulCurrentRow)
 {
-	scoped_rlock biglock(mLock);
+	std::lock_guard biglock(mLock);
 	auto er = CurrentRow(lpCurrent, lpulCurrentRow);
 	if (er != erSuccess)
 		return er;
@@ -726,7 +727,7 @@ ECRESULT ECKeyTable::CurrentRow(ECTableRow *lpRow, unsigned int *lpulCurrentRow)
  */
 ECRESULT ECKeyTable::QueryRows(unsigned int ulRows, ECObjectTableList* lpRowList, bool bDirBackward, unsigned int ulFlags, bool bShowHidden)
 {
-	scoped_rlock biglock(mLock);
+	std::lock_guard biglock(mLock);
 	auto lpOrig = lpCurrent;
 
 	if (bDirBackward && lpCurrent == nullptr)
@@ -797,7 +798,7 @@ void ECKeyTable::Prev()
 
 ECRESULT ECKeyTable::GetPreviousRow(const sObjectTableKey *lpsRowItem, sObjectTableKey *lpsPrev)
 {
-	scoped_rlock biglock(mLock);
+	std::lock_guard biglock(mLock);
 	auto lpPos = lpCurrent;
 	auto er = SeekId(lpsRowItem);
     if(er != erSuccess)
@@ -942,7 +943,7 @@ void ECKeyTable::RestructureRecursive(ECTableRow *lpRow)
  */
 ECRESULT ECKeyTable::GetRowsBySortPrefix(sObjectTableKey *lpsRowItem, ECObjectTableList *lpRowList)
 {
-	scoped_rlock biglock(mLock);
+	std::lock_guard biglock(mLock);
 	auto lpCursor = lpCurrent;
 	auto er = SeekId(lpsRowItem);
 	if(er != erSuccess)
@@ -963,7 +964,7 @@ ECRESULT ECKeyTable::GetRowsBySortPrefix(sObjectTableKey *lpsRowItem, ECObjectTa
 ECRESULT ECKeyTable::HideRows(sObjectTableKey *lpsRowItem, ECObjectTableList *lpHiddenList)
 {
     bool fCursorHidden = false;
-	scoped_rlock biglock(mLock);
+	std::lock_guard biglock(mLock);
 	auto lpCursor = lpCurrent;
 	auto er = SeekId(lpsRowItem);
 	if(er != erSuccess)
@@ -997,7 +998,7 @@ ECRESULT ECKeyTable::HideRows(sObjectTableKey *lpsRowItem, ECObjectTableList *lp
 // @todo lpCurrent should stay pointing at the same row we started at?
 ECRESULT ECKeyTable::UnhideRows(sObjectTableKey *lpsRowItem, ECObjectTableList *lpUnhiddenList)
 {
-	scoped_rlock biglock(mLock);
+	std::lock_guard biglock(mLock);
 	auto er = SeekId(lpsRowItem);
 	if(er != erSuccess)
 		return er;
@@ -1030,7 +1031,7 @@ ECRESULT ECKeyTable::UnhideRows(sObjectTableKey *lpsRowItem, ECObjectTableList *
 
 ECRESULT ECKeyTable::LowerBound(const std::vector<ECSortCol> &cols)
 {
-	scoped_rlock biglock(mLock);
+	std::lock_guard biglock(mLock);
 
 	// With B being the passed sort key, find the first item A, for which !(A < B), AKA B >= A
 	lpCurrent = lpRoot->lpRight;
@@ -1060,7 +1061,7 @@ ECRESULT ECKeyTable::LowerBound(const std::vector<ECSortCol> &cols)
 // Find an exact match for a sort key
 ECRESULT ECKeyTable::Find(const std::vector<ECSortCol> &cols, sObjectTableKey *lpsKey)
 {
-	scoped_rlock biglock(mLock);
+	std::lock_guard biglock(mLock);
 	auto lpCurPos = lpCurrent;
 	auto er = LowerBound(cols);
     if(er != erSuccess)
@@ -1093,7 +1094,7 @@ exit:
 size_t ECKeyTable::GetObjectSize()
 {
 	size_t ulSize = sizeof(*this);
-	scoped_rlock biglock(mLock);
+	std::lock_guard biglock(mLock);
 
 	ulSize += MEMORY_USAGE_MAP(mapRow.size(), ECTableRowMap);
 	for (const auto &r : mapRow)

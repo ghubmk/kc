@@ -15,6 +15,7 @@
 #include <mapiutil.h>
 #include <fstream>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -383,7 +384,7 @@ HRESULT WSTransport::HrReLogon()
 		return hr;
 
 	// Notify new session to listeners
-	scoped_rlock lock(m_mutexSessionReload);
+	std::lock_guard lock(m_mutexSessionReload);
 	for (const auto &p : m_mapSessionReload)
 		p.second.second(p.second.first, m_ecSessionId);
 	return hrSuccess;
@@ -3465,7 +3466,7 @@ HRESULT WSTransport::HrResolvePseudoUrl(const char *lpszPseudoUrl, char **lppszS
 	}
 
 	{
-		scoped_rlock lock(m_ResolveResultCacheMutex);
+		std::lock_guard lock(m_ResolveResultCacheMutex);
 		m_ResolveResultCache.AddCacheItem(lpszPseudoUrl, std::move(cachedResult));
 	}
 
@@ -3857,7 +3858,7 @@ HRESULT WSTransport::GetServerGUID(GUID *lpsServerGuid) const
 HRESULT WSTransport::AddSessionReloadCallback(void *lpParam, SESSIONRELOADCALLBACK callback, ULONG *lpulId)
 {
 	decltype(m_mapSessionReload)::mapped_type data(lpParam, callback);
-	scoped_rlock lock(m_mutexSessionReload);
+	std::lock_guard lock(m_mutexSessionReload);
 
 	m_mapSessionReload[m_ulReloadId] = data;
 	if(lpulId)
@@ -3868,7 +3869,7 @@ HRESULT WSTransport::AddSessionReloadCallback(void *lpParam, SESSIONRELOADCALLBA
 
 HRESULT WSTransport::RemoveSessionReloadCallback(ULONG ulId)
 {
-	scoped_rlock lock(m_mutexSessionReload);
+	std::lock_guard lock(m_mutexSessionReload);
 	return m_mapSessionReload.erase(ulId) == 0 ? MAPI_E_NOT_FOUND : hrSuccess;
 }
 

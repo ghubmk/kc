@@ -2,6 +2,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  * Copyright 2005 - 2016 Zarafa and its licensors
  */
+#include <mutex>
 #include <kopano/platform.h>
 #include "ECParentStorage.h"
 #include <kopano/ECGuid.h>
@@ -52,7 +53,7 @@ HRESULT ECParentStorage::HrLoadObject(MAPIOBJECT **lppsMapiObject)
 	if (m_lpParentObject == nullptr)
 		return MAPI_E_INVALID_OBJECT;
 
-	KC::scoped_rlock lock(m_lpParentObject->m_hMutexMAPIObject);
+	std::lock_guard lock(m_lpParentObject->m_hMutexMAPIObject);
 	if (m_lpParentObject->m_sMapiObject == NULL)
 		return MAPI_E_INVALID_OBJECT;
 

@@ -7,6 +7,7 @@
 #include <list>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -281,7 +282,7 @@ ECRESULT ECCacheManager::I_GetObject(unsigned int ulObjId,
     unsigned int *ulType)
 {
 	ECsObjects	*sObject;
-	scoped_rlock lock(m_hCacheObjectMutex);
+	std::lock_guard lock(m_hCacheObjectMutex);
 
 	auto er = m_ObjectsCache.GetCacheItem(ulObjId, &sObject);
 	if(er != erSuccess)
@@ -313,7 +314,7 @@ ECRESULT ECCacheManager::SetObject(unsigned int ulObjId, unsigned int ulParent, 
 	sObjects.ulFlags	= ulFlags;
 	sObjects.ulType		= ulType;
 
-	scoped_rlock lock(m_hCacheObjectMutex);
+	std::lock_guard lock(m_hCacheObjectMutex);
 	auto er = m_ObjectsCache.AddCacheItem(ulObjId, std::move(sObjects));
 	LOG_CACHE_DEBUG("Set cache object id %d, parent %d, owner %d, flags %d, type %d", ulObjId, ulParent, ulOwner, ulFlags, ulType);
 	return er;
@@ -321,7 +322,7 @@ ECRESULT ECCacheManager::SetObject(unsigned int ulObjId, unsigned int ulParent, 
 
 void ECCacheManager::I_DelObject(unsigned int ulObjId)
 {
-	scoped_rlock lock(m_hCacheObjectMutex);
+	std::lock_guard lock(m_hCacheObjectMutex);
 	m_ObjectsCache.RemoveCacheItem(ulObjId);
 }
 
@@ -329,7 +330,7 @@ ECRESULT ECCacheManager::I_GetStore(unsigned int ulObjId, unsigned int *ulStore,
     GUID *lpGuid, unsigned int *lpulType)
 {
 	ECsStores	*sStores;
-	scoped_rlock lock(m_hCacheStoreMutex);
+	std::lock_guard lock(m_hCacheStoreMutex);
 
 	auto er = m_StoresCache.GetCacheItem(ulObjId, &sStores);
 	if(er != erSuccess)
@@ -351,7 +352,7 @@ ECRESULT ECCacheManager::SetStore(unsigned int ulObjId, unsigned int ulStore,
 	sStores.guidStore = *lpGuid;
 	sStores.ulType = ulType;
 
-	scoped_rlock lock(m_hCacheStoreMutex);
+	std::lock_guard lock(m_hCacheStoreMutex);
 	auto er = m_StoresCache.AddCacheItem(ulObjId, std::move(sStores));
 	LOG_CACHE_DEBUG("Set store cache id %d, store %d, type %d, guid %s", ulObjId, ulStore, ulType, (lpGuid != nullptr ? bin2hex(sizeof(GUID), lpGuid).c_str() : "NULL"));
 	return er;
@@ -359,7 +360,7 @@ ECRESULT ECCacheManager::SetStore(unsigned int ulObjId, unsigned int ulStore,
 
 void ECCacheManager::I_DelStore(unsigned int ulObjId)
 {
-	scoped_rlock lock(m_hCacheStoreMutex);
+	std::lock_guard lock(m_hCacheStoreMutex);
 	m_StoresCache.RemoveCacheItem(ulObjId);
 }
 
@@ -478,7 +479,7 @@ ECRESULT ECCacheManager::GetObjects(const std::list<sObjectTableKey> &lstObjects
 
     {
         // Get everything from the cache that we can
-       scoped_rlock lock(m_hCacheObjectMutex);
+		std::lock_guard lock(m_hCacheObjectMutex);
 
 	for (const auto &key : lstObjects)
 		if (m_ObjectsCache.GetCacheItem(key.ulObjId, &lpsObject) == erSuccess)
@@ -930,7 +931,7 @@ ECRESULT ECCacheManager::I_AddUserObject(unsigned int ulUserId,
 {
 	ECsUserObject sData;
 
-	scoped_rlock lock(m_hCacheMutex);
+	std::lock_guard lock(m_hCacheMutex);
 
 	if (OBJECTCLASS_ISTYPE(ulClass)) {
 		LOG_USERCACHE_DEBUG("_Add user object. userid %d, class %d, companyid %d, externid \"%s\", signature \"%s\". error incomplete object",
@@ -953,7 +954,7 @@ ECRESULT ECCacheManager::I_GetUserObject(unsigned int ulUserId,
     std::string *lpstrExternId, std::string *lpstrSignature)
 {
 	ECsUserObject	*sData;
-	scoped_rlock lock(m_hCacheMutex);
+	std::lock_guard lock(m_hCacheMutex);
 
 	auto er = m_UserObjectCache.GetCacheItem(ulUserId, &sData);
 	if(er != erSuccess)
@@ -974,7 +975,7 @@ ECRESULT ECCacheManager::I_GetUserObject(unsigned int ulUserId,
 
 void ECCacheManager::I_DelUserObject(unsigned int ulUserId)
 {
-	scoped_rlock lock(m_hCacheMutex);
+	std::lock_guard lock(m_hCacheMutex);
 	m_UserObjectCache.RemoveCacheItem(ulUserId);
 }
 
@@ -983,7 +984,7 @@ ECRESULT ECCacheManager::I_AddUserObjectDetails(unsigned int ulUserId,
 {
 	ECsUserObjectDetails sObjectDetails;
 
-	scoped_rlock lock(m_hCacheMutex);
+	std::lock_guard lock(m_hCacheMutex);
 	LOG_USERCACHE_DEBUG("_Add user details. userid %d, %s", ulUserId, details.ToStr().c_str());
 	sObjectDetails.sDetails = details;
 	return m_UserObjectDetailsCache.AddCacheItem(ulUserId, std::move(sObjectDetails));
@@ -992,7 +993,7 @@ ECRESULT ECCacheManager::I_AddUserObjectDetails(unsigned int ulUserId,
 ECRESULT ECCacheManager::I_GetUserObjectDetails(unsigned int ulUserId, objectdetails_t *details)
 {
 	ECsUserObjectDetails *sObjectDetails;
-	scoped_rlock lock(m_hCacheMutex);
+	std::lock_guard lock(m_hCacheMutex);
 
 	if (details == NULL)
 		return KCERR_INVALID_PARAMETER;
@@ -1006,7 +1007,7 @@ ECRESULT ECCacheManager::I_GetUserObjectDetails(unsigned int ulUserId, objectdet
 
 void ECCacheManager::I_DelUserObjectDetails(unsigned int ulUserId)
 {
-	scoped_rlock lock(m_hCacheMutex);
+	std::lock_guard lock(m_hCacheMutex);
 	m_UserObjectDetailsCache.RemoveCacheItem(ulUserId);
 }
 
@@ -1017,7 +1018,7 @@ ECRESULT ECCacheManager::I_AddUEIdObject(const std::string &strExternId,
 	ECsUEIdKey sKey;
 	ECsUEIdObject sData;
 
-	scoped_rlock lock(m_hCacheMutex);
+	std::lock_guard lock(m_hCacheMutex);
 
 	if (OBJECTCLASS_ISTYPE(ulClass))
 		return erSuccess; // do not add incomplete data into the cache
@@ -1041,7 +1042,7 @@ ECRESULT ECCacheManager::I_GetUEIdObject(const std::string &strExternId,
 	sKey.ulClass = ulClass;
 	sKey.strExternId = strExternId;
 
-	scoped_rlock lock(m_hCacheMutex);
+	std::lock_guard lock(m_hCacheMutex);
 
 	auto er = m_UEIdObjectCache.GetCacheItem(sKey, &sData);
 	if(er != erSuccess)
@@ -1066,7 +1067,7 @@ void ECCacheManager::I_DelUEIdObject(const std::string &strExternId,
 	sKey.strExternId = strExternId;
 	sKey.ulClass = ulClass;
 
-	scoped_rlock lock(m_hCacheMutex);
+	std::lock_guard lock(m_hCacheMutex);
 	m_UEIdObjectCache.RemoveCacheItem(sKey);
 }
 
@@ -1120,7 +1121,7 @@ ECRESULT ECCacheManager::GetACLs(unsigned int ulObjId, struct rightsArray **lppR
 ECRESULT ECCacheManager::I_GetACLs(unsigned int ulObjId, struct rightsArray **lppRights)
 {
     ECsACLs *sACL;
-	scoped_rlock lock(m_hCacheMutex);
+	std::lock_guard lock(m_hCacheMutex);
 
 	auto er = m_AclCache.GetCacheItem(ulObjId, &sACL);
 	if(er != erSuccess)
@@ -1162,13 +1163,13 @@ ECRESULT ECCacheManager::SetACLs(unsigned int ulObjId,
 			lpRights.__ptr[i].ulType, lpRights.__ptr[i].ulRights);
     }
 
-	scoped_rlock lock(m_hCacheMutex);
+	std::lock_guard lock(m_hCacheMutex);
 	return m_AclCache.AddCacheItem(ulObjId, std::move(sACLs));
 }
 
 void ECCacheManager::I_DelACLs(unsigned int ulObjId)
 {
-	scoped_rlock lock(m_hCacheMutex);
+	std::lock_guard lock(m_hCacheMutex);
 	LOG_USERCACHE_DEBUG("Remove ACLs for objectid %d", ulObjId);
 	m_AclCache.RemoveCacheItem(ulObjId);
 }
@@ -1185,7 +1186,7 @@ ECRESULT ECCacheManager::SetQuota(unsigned int ulUserId, bool bIsDefaultQuota,
 {
 	ECsQuota	sQuota;
 	sQuota.quota = quota;
-	scoped_rlock lock(m_hCacheMutex);
+	std::lock_guard lock(m_hCacheMutex);
 	if (bIsDefaultQuota)
 		return m_QuotaUserDefaultCache.AddCacheItem(ulUserId, std::move(sQuota));
 	return m_QuotaCache.AddCacheItem(ulUserId, std::move(sQuota));
@@ -1195,7 +1196,7 @@ ECRESULT ECCacheManager::I_GetQuota(unsigned int ulUserId, bool bIsDefaultQuota,
 {
 	ECRESULT er;
 	ECsQuota	*sQuota;
-	scoped_rlock lock(m_hCacheMutex);
+	std::lock_guard lock(m_hCacheMutex);
 
 	if (quota == NULL)
 		return KCERR_INVALID_PARAMETER;
@@ -1211,7 +1212,7 @@ ECRESULT ECCacheManager::I_GetQuota(unsigned int ulUserId, bool bIsDefaultQuota,
 
 void ECCacheManager::I_DelQuota(unsigned int ulUserId, bool bIsDefaultQuota)
 {
-	scoped_rlock lock(m_hCacheMutex);
+	std::lock_guard lock(m_hCacheMutex);
 	if (bIsDefaultQuota)
 		m_QuotaUserDefaultCache.RemoveCacheItem(ulUserId);
 	else
@@ -1267,7 +1268,7 @@ ECRESULT ECCacheManager::GetCell(const sObjectTableKey *lpsRowItem,
 {
     ECRESULT er = erSuccess;
     ECsCells *sCell;
-	scoped_rlock lock(m_hCacheCellsMutex);
+	std::lock_guard lock(m_hCacheCellsMutex);
 
     if (m_bCellCacheDisabled) {
         er = KCERR_NOT_FOUND;
@@ -1309,7 +1310,7 @@ ECRESULT ECCacheManager::SetCell(const sObjectTableKey *lpsRowItem,
     ECRESULT er = erSuccess;
     ECsCells *sCell;
 	/* ignoring orderId for now */
-	scoped_rlock lock(m_hCacheCellsMutex);
+	std::lock_guard lock(m_hCacheCellsMutex);
 
 	if (m_CellCache.GetCacheItem(lpsRowItem->ulObjId, &sCell) == erSuccess) {
         long long ulSize = sCell->GetSize();
@@ -1334,7 +1335,7 @@ ECRESULT ECCacheManager::SetComplete(unsigned int ulObjId)
 {
     ECRESULT er = erSuccess;
     ECsCells *sCell;
-	scoped_rlock lock(m_hCacheCellsMutex);
+	std::lock_guard lock(m_hCacheCellsMutex);
 
 	if (m_CellCache.GetCacheItem(ulObjId, &sCell) == erSuccess)
 		sCell->SetComplete(true);
@@ -1351,7 +1352,7 @@ ECRESULT ECCacheManager::GetComplete(unsigned int ulObjId, bool &complete)
 {
 	ECRESULT er = erSuccess;
 	ECsCells *sCell;
-	scoped_rlock lock(m_hCacheCellsMutex);
+	std::lock_guard lock(m_hCacheCellsMutex);
 
 	if (m_CellCache.GetCacheItem(ulObjId, &sCell) == erSuccess)
 		complete = sCell->GetComplete();
@@ -1368,7 +1369,7 @@ ECRESULT ECCacheManager::GetPropTags(unsigned int ulObjId, std::vector<unsigned 
 {
 	ECRESULT er = erSuccess;
 	ECsCells *sCell;
-	scoped_rlock lock(m_hCacheCellsMutex);
+	std::lock_guard lock(m_hCacheCellsMutex);
 
 	if (m_CellCache.GetCacheItem(ulObjId, &sCell) == erSuccess)
 		proptags = sCell->GetPropTags();
@@ -1385,7 +1386,7 @@ ECRESULT ECCacheManager::UpdateCell(unsigned int ulObjId, unsigned int ulPropTag
 {
     ECRESULT er = erSuccess;
     ECsCells *sCell;
-	scoped_rlock lock(m_hCacheCellsMutex);
+	std::lock_guard lock(m_hCacheCellsMutex);
 
 	if (m_CellCache.GetCacheItem(ulObjId, &sCell) == erSuccess)
 		sCell->UpdatePropVal(ulPropTag, lDelta);
@@ -1402,7 +1403,7 @@ ECRESULT ECCacheManager::UpdateCell(unsigned int ulObjId, unsigned int ulPropTag
 {
     ECRESULT er = erSuccess;
     ECsCells *sCell;
-	scoped_rlock lock(m_hCacheCellsMutex);
+	std::lock_guard lock(m_hCacheCellsMutex);
 
 	if (m_CellCache.GetCacheItem(ulObjId, &sCell) == erSuccess)
 		sCell->UpdatePropVal(ulPropTag, ulMask, ulValue);
@@ -1417,14 +1418,14 @@ ECRESULT ECCacheManager::UpdateCell(unsigned int ulObjId, unsigned int ulPropTag
 
 void ECCacheManager::I_DelCell(unsigned int ulObjId)
 {
-	scoped_rlock lock(m_hCacheCellsMutex);
+	std::lock_guard lock(m_hCacheCellsMutex);
 	m_CellCache.RemoveCacheItem(ulObjId);
 }
 
 ECRESULT ECCacheManager::GetServerDetails(const std::string &strServerId, serverdetails_t *lpsDetails)
 {
 	ECsServerDetails	*sEntry;
-	scoped_rlock lock(m_hCacheMutex);
+	std::lock_guard lock(m_hCacheMutex);
 	auto er = m_ServerDetailsCache.GetCacheItem(strToLower(strServerId), &sEntry);
 	if (er != erSuccess)
 		return er;
@@ -1438,7 +1439,7 @@ ECRESULT ECCacheManager::SetServerDetails(const std::string &strServerId, const 
 	ECsServerDetails	sEntry;
 	sEntry.sDetails = sDetails;
 
-	scoped_rlock lock(m_hCacheMutex);
+	std::lock_guard lock(m_hCacheMutex);
 	return m_ServerDetailsCache.AddCacheItem(strToLower(strServerId), std::move(sEntry));
 }
 
@@ -1453,7 +1454,7 @@ ECRESULT ECCacheManager::RemoveIndexData(unsigned int ulObjId)
 	sObjectKeyUpper.ulObjId = ulObjId;
 	sObjectKeyUpper.ulTag = 0xffffffff;
 
-	scoped_rlock lock(m_hCacheIndPropMutex);
+	std::lock_guard lock(m_hCacheIndPropMutex);
 	auto er = m_ObjectToPropCache.GetCacheRange(sObjectKeyLower, sObjectKeyUpper, &lstItems);
 	for (const auto &p : lstItems) {
 		m_ObjectToPropCache.RemoveCacheItem(p.first);
@@ -1476,7 +1477,7 @@ ECRESULT ECCacheManager::RemoveIndexData(unsigned int ulPropTag,
 	sObject.cbData = cbData;
 	sObject.lpData = const_cast<unsigned char *>(lpData); /* Cheap copy, set this item to nullptr before exiting */
 
-	scoped_rlock lock(m_hCacheIndPropMutex);
+	std::lock_guard lock(m_hCacheIndPropMutex);
         if(m_PropToObjectCache.GetCacheItem(sObject, &sObjectId) == erSuccess) {
             m_ObjectToPropCache.RemoveCacheItem(*sObjectId);
             m_PropToObjectCache.RemoveCacheItem(sObject);
@@ -1495,7 +1496,7 @@ ECRESULT ECCacheManager::RemoveIndexData(unsigned int ulPropTag, unsigned int ul
 	sObject.ulObjId = ulObjId;
 
 	LOG_CACHE_DEBUG("Remove index data proptag 0x%08X, objectid %d", ulPropTag, ulObjId);
-	scoped_rlock lock(m_hCacheIndPropMutex);
+	std::lock_guard lock(m_hCacheIndPropMutex);
        if(m_ObjectToPropCache.GetCacheItem(sObject, &sObjectId) == erSuccess) {
             m_PropToObjectCache.RemoveCacheItem(*sObjectId);
             m_ObjectToPropCache.RemoveCacheItem(sObject);
@@ -1506,7 +1507,7 @@ ECRESULT ECCacheManager::RemoveIndexData(unsigned int ulPropTag, unsigned int ul
 ECRESULT ECCacheManager::I_AddIndexData(const ECsIndexObject &lpObject,
     const ECsIndexProp &lpProp)
 {
-	scoped_rlock lock(m_hCacheIndPropMutex);
+	std::lock_guard lock(m_hCacheIndPropMutex);
 
     // Remove any pre-existing references to this data
 	RemoveIndexData(PROP_TAG(PT_UNSPECIFIED, lpObject.ulTag), lpObject.ulObjId);
@@ -1535,7 +1536,7 @@ ECRESULT ECCacheManager::GetPropFromObject(unsigned int ulTag, unsigned int ulOb
 	LOG_CACHE_DEBUG("Get Prop From Object tag=0x%04X, objectid %d", ulTag, ulObjId);
 
 	{
-		scoped_rlock lock(m_hCacheIndPropMutex);
+		std::lock_guard lock(m_hCacheIndPropMutex);
 		er = m_ObjectToPropCache.GetCacheItem(sObjectKey, &sObject);
 
 		if(er == erSuccess) {
@@ -1649,7 +1650,7 @@ ECRESULT ECCacheManager::QueryObjectFromProp(unsigned int ulTag, unsigned int cb
 	sObject.cbData = cbData;
 	sObject.lpData = const_cast<unsigned char *>(lpData); /* Cheap copy, set this item to nullptr before exiting */
 
-	scoped_rlock lock(m_hCacheIndPropMutex);
+	std::lock_guard lock(m_hCacheIndPropMutex);
 	auto er = m_PropToObjectCache.GetCacheItem(sObject, &sIndexObject);
 	if (er == erSuccess)
 		*lpulObjId = sIndexObject->ulObjId;
@@ -1774,7 +1775,7 @@ ECRESULT ECCacheManager::GetEntryListToObjectList(struct entryList *lpEntryList,
  */
 ECRESULT ECCacheManager::GetExcludedIndexProperties(std::set<unsigned int>& set)
 {
-	scoped_lock lock(m_hExcludedIndexPropertiesMutex);
+	std::lock_guard lock(m_hExcludedIndexPropertiesMutex);
 	if (m_setExcludedIndexProperties.empty())
 		return KCERR_NOT_FOUND;
 	set = m_setExcludedIndexProperties;
@@ -1789,7 +1790,7 @@ ECRESULT ECCacheManager::GetExcludedIndexProperties(std::set<unsigned int>& set)
  */
 ECRESULT ECCacheManager::SetExcludedIndexProperties(const std::set<unsigned int> &set)
 {
-	scoped_lock lock(m_hExcludedIndexPropertiesMutex);
+	std::lock_guard lock(m_hExcludedIndexPropertiesMutex);
 	m_setExcludedIndexProperties = set;
 	return erSuccess;
 }

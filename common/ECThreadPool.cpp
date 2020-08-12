@@ -154,19 +154,19 @@ bool ECThreadPool::enqueue(ECTask *lpTask, bool bTakeOwnership,
 time_duration ECThreadPool::front_item_age() const
 {
 	auto now = std::chrono::steady_clock::now();
-	scoped_lock lock(m_hMutex);
+	std::lock_guard lock(m_hMutex);
 	return m_listTasks.empty() ? time_duration(0) : now - m_listTasks.front().enq_stamp;
 }
 
 size_t ECThreadPool::queue_length() const
 {
-	scoped_lock lk(m_hMutex);
+	std::lock_guard lk(m_hMutex);
 	return m_listTasks.size();
 }
 
 void ECThreadPool::thread_counts(size_t *active, size_t *idle) const
 {
-	scoped_lock lk(m_hMutex);
+	std::lock_guard lk(m_hMutex);
 	*active = m_active;
 	*idle   = m_setThreads.size() - *active;
 }
@@ -463,7 +463,7 @@ HRESULT ECScheduler::AddSchedule(eSchedulerType eType, unsigned int ulBeginCycle
 	sECSchedule.lpFunction = lpFunction;
 	sECSchedule.lpData = lpData;
 	sECSchedule.tLastRunTime = 0;
-	scoped_rlock l_sched(m_hSchedulerMutex);
+	std::lock_guard l_sched(m_hSchedulerMutex);
 	m_listScheduler.emplace_back(std::move(sECSchedule));
 	return S_OK;
 }

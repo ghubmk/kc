@@ -6,6 +6,7 @@
 #include <iterator>
 #include <list>
 #include <memory>
+#include <mutex>
 #include <new>
 #include <set>
 #include <string>
@@ -171,7 +172,7 @@ static const struct propTagArray sPropTagArrayServerStats =
 
 ECTableManager::~ECTableManager()
 {
-	scoped_rlock lock(hListMutex);
+	std::lock_guard lock(hListMutex);
 
 	// Clean up tables, if CloseTable(..) isn't called
 	for (auto iterTables = mapTable.cbegin();
@@ -187,7 +188,7 @@ ECTableManager::~ECTableManager()
 void ECTableManager::AddTableEntry(std::unique_ptr<TABLE_ENTRY> &&arg,
     unsigned int *lpulTableId)
 {
-	scoped_rlock lock(hListMutex);
+	std::lock_guard lock(hListMutex);
 	mapTable[ulNextTableId] = std::move(arg);
 	auto &lpEntry = mapTable[ulNextTableId];
 	lpEntry->lpTable->AddRef();
@@ -522,7 +523,7 @@ ECRESULT ECTableManager::OpenABTable(unsigned int ulParent, unsigned int ulParen
 
 ECRESULT ECTableManager::GetTable(unsigned int ulTableId, ECGenericObjectTable **lppTable)
 {
-	scoped_rlock lock(hListMutex);
+	std::lock_guard lock(hListMutex);
 
 	auto iterTables = mapTable.find(ulTableId);
 	if (iterTables == mapTable.cend())
@@ -575,7 +576,7 @@ ECRESULT ECTableManager::UpdateOutgoingTables(ECKeyTable::UpdateType ulType,
     unsigned int ulStoreId, const std::vector<unsigned int> &lstObjId,
     unsigned int ulFlags, unsigned int ulObjType)
 {
-	scoped_rlock lock(hListMutex);
+	std::lock_guard lock(hListMutex);
 
 	for (const auto &t : mapTable) {
 		bool k = t.second->ulTableType == TABLE_ENTRY::TABLE_TYPE_OUTGOINGQUEUE &&
@@ -594,7 +595,7 @@ ECRESULT ECTableManager::UpdateTables(ECKeyTable::UpdateType ulType,
     unsigned int ulFlags, unsigned int ulObjId,
     const std::vector<unsigned int> &lstChildId, unsigned int ulObjType)
 {
-	scoped_rlock lock(hListMutex);
+	std::lock_guard lock(hListMutex);
 	bool filter_private = false;
 	std::string strInQuery, strQuery;
 	std::set<unsigned int> setObjIdPrivate;
@@ -655,7 +656,7 @@ ECRESULT ECTableManager::UpdateTables(ECKeyTable::UpdateType ulType,
  */
 ECRESULT ECTableManager::GetStats(unsigned int *lpulTables, unsigned int *lpulObjectSize)
 {
-	scoped_rlock lock(hListMutex);
+	std::lock_guard lock(hListMutex);
 	unsigned int ulTables = mapTable.size();
 	unsigned int ulSize = MEMORY_USAGE_MAP(ulTables, TABLEENTRYMAP);
 
@@ -713,7 +714,7 @@ ECRESULT ECSearchObjectTable::Load()
 	if (m_ulFolderId == 0)
 		return erSuccess;
 	/* Get the search results */
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 	std::vector<unsigned int> objlist, objlist2;
 	std::set<unsigned int> priv;
 	auto er = lpSession->GetSessionManager()->GetSearchFolders()->GetSearchResults(m_ulStoreId, m_ulFolderId, &objlist);

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <list>
 #include <memory>
+#include <mutex>
 #include <new>
 #include <string>
 #include <utility>
@@ -453,7 +454,7 @@ HRESULT M4LProviderAdmin::DeleteProvider(const MAPIUID *lpUID)
 HRESULT M4LProviderAdmin::OpenProfileSection(const MAPIUID *lpUID,
     const IID *lpInterface, ULONG ulFlags, IProfSect **lppProfSect)
 {
-	scoped_rlock l_srv(msa->m_mutexserviceadmin);
+	std::lock_guard l_srv(msa->m_mutexserviceadmin);
 
 	// Special ID: the global guid opens the profile's global profile section instead of a local profile
 	if (*lpUID == pbGlobalProfileSectionGuid)

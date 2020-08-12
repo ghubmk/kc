@@ -84,7 +84,7 @@ HRESULT M4LMAPISupport::Subscribe(const NOTIFKEY *lpKey, ULONG ulEventMask,
 }
 
 HRESULT M4LMAPISupport::Unsubscribe(ULONG ulConnection) {
-	scoped_lock l_adv(m_advises_mutex);
+	std::lock_guard l_adv(m_advises_mutex);
 	auto i = m_advises.find(ulConnection);
 	if (i == m_advises.cend())
 		return MAPI_E_NOT_FOUND;

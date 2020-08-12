@@ -228,7 +228,7 @@ HRESULT M4LProfAdmin::CreateProfile(const TCHAR *lpszProfileName,
  */
 HRESULT M4LProfAdmin::DeleteProfile(const TCHAR *lpszProfileName, ULONG ulFlags)
 {
-	scoped_rlock l_prof(m_mutexProfiles);
+	std::lock_guard l_prof(m_mutexProfiles);
     
 	auto i = findProfile(lpszProfileName);
 	if (i != profiles.cend())
@@ -253,7 +253,7 @@ HRESULT M4LProfAdmin::AdminServices(const TCHAR *lpszProfileName,
     const TCHAR *lpszPassword, ULONG_PTR ulUIParam, ULONG ulFlags,
     IMsgServiceAdmin **lppServiceAdmin)
 {
-	scoped_rlock l_prof(m_mutexProfiles);
+	std::lock_guard l_prof(m_mutexProfiles);
 
     if(lpszProfileName == NULL) {
 	ec_log_err("M4LProfAdmin::AdminServices invalid parameters");
@@ -416,7 +416,7 @@ HRESULT M4LMsgServiceAdmin::CreateMsgServiceEx(const char *lpszService,
 		return MAPI_E_INVALID_PARAMETER;
 	}
 
-	scoped_rlock l_srv(m_mutexserviceadmin);
+	std::lock_guard l_srv(m_mutexserviceadmin);
 	std::shared_ptr<SVCService> service;
 	auto hr = m4l_lpMAPISVC->GetService(reinterpret_cast<const TCHAR *>(lpszService), ulFlags, service);
 	if (hr == MAPI_E_NOT_FOUND) {
@@ -471,7 +471,7 @@ HRESULT M4LMsgServiceAdmin::CreateMsgServiceEx(const char *lpszService,
 HRESULT M4LMsgServiceAdmin::DeleteMsgService(const MAPIUID *lpUID)
 {
 	decltype(services)::iterator i;
-	scoped_rlock l_srv(m_mutexserviceadmin);
+	std::lock_guard l_srv(m_mutexserviceadmin);
 
 	for (i = services.begin(); i != services.end(); ++i)
 		if (memcmp(&(*i)->muid, lpUID, sizeof(MAPIUID)) == 0)
@@ -597,7 +597,7 @@ HRESULT M4LMsgServiceAdmin::OpenProfileSection(const MAPIUID *lpUID,
 HRESULT M4LMsgServiceAdmin::AdminProviders(const MAPIUID *lpUID, ULONG ulFlags,
     IProviderAdmin **lppProviderAdmin)
 {
-	scoped_rlock l_srv(m_mutexserviceadmin);
+	std::lock_guard l_srv(m_mutexserviceadmin);
 	auto entry = findServiceAdmin(lpUID);
 	if (!entry) {
 		ec_log_err("M4LMsgServiceAdmin::AdminProviders(): service admin not found");
@@ -1160,7 +1160,7 @@ HRESULT M4LMAPISession::Unadvise(ULONG ulConnection) {
 
 HRESULT M4LMAPISession::QueryIdentity(ULONG* lpcbEntryID, LPENTRYID* lppEntryID) {
 	LPENTRYID lpEntryID = NULL;
-	scoped_lock l_srv(m_mutexStatusRow);
+	std::lock_guard l_srv(m_mutexStatusRow);
 
 	auto lpProp = PCpropFindProp(m_lpPropsStatus, m_cValuesStatus, PR_IDENTITY_ENTRYID);
 	if(lpProp == NULL) {
@@ -1198,7 +1198,7 @@ HRESULT M4LMAPISession::QueryInterface(const IID &refiid, void **lppInterface)
 
 HRESULT M4LMAPISession::setStatusRow(ULONG cValues, const SPropValue *lpProps)
 {
-	scoped_lock l_status(m_mutexStatusRow);
+	std::lock_guard l_status(m_mutexStatusRow);
 	m_cValuesStatus = 0;
 	auto hr = Util::HrCopyPropertyArray(lpProps, cValues, &~m_lpPropsStatus,
 	          &m_cValuesStatus, true);
@@ -1855,7 +1855,7 @@ SCODE MAPIAllocateMore(ULONG cbSize, LPVOID lpObject, LPVOID *lppBuffer)
 	if (head->ident != MAPIBUF_BASE)
 		assert("AllocateMore on something that was not allocated with MAPIAllocateBuffer!\n" == nullptr);
 #endif
-	scoped_lock lock(head->mtx);
+	std::lock_guard lock(head->mtx);
 	bfr->child = head->child;
 	head->child = bfr;
 	*lppBuffer = bfr->data;
@@ -2021,7 +2021,7 @@ static std::mutex g_MAPILock;
  */
 HRESULT MAPIInitialize(LPVOID lpMapiInit)
 {
-	scoped_lock l_mapi(g_MAPILock);
+	std::lock_guard l_mapi(g_MAPILock);
 
 	if (MAPIInitializeCount++ > 0) {
 		assert(localProfileAdmin);
@@ -2052,7 +2052,7 @@ HRESULT MAPIInitialize(LPVOID lpMapiInit)
  */
 void MAPIUninitialize()
 {
-	scoped_lock l_mapi(g_MAPILock);
+	std::lock_guard l_mapi(g_MAPILock);
 
 	if (MAPIInitializeCount == 0)
 		abort();
@@ -2361,7 +2361,7 @@ HRESULT SessionRestorer::restore_providers()
 		ret = entry->profilesection->SetProps(ps_nprops, ps_props, nullptr);
 		if (ret != hrSuccess)
 			return ret;
-		scoped_rlock svclk(m_svcadm->m_mutexserviceadmin);
+		std::lock_guard svclk(m_svcadm->m_mutexserviceadmin);
 		m_svcadm->providers.emplace_back(std::move(entry));
 	}
 	return hrSuccess;

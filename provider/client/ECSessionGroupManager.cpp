@@ -3,6 +3,7 @@
  * Copyright 2005 - 2016 Zarafa and its licensors
  */
 #include <algorithm>
+#include <mutex>
 #include <kopano/platform.h>
 #include <mapicode.h>
 #include <mapix.h>
@@ -19,7 +20,7 @@ ECSessionGroupManager g_ecSessionManager;
 ECSESSIONGROUPID ECSessionGroupManager::GetSessionGroupId(const sGlobalProfileProps &sProfileProps)
 {
 	ECSESSIONGROUPID ecSessionGroupId;
-	scoped_rlock lock(m_hMutex);
+	std::lock_guard lock(m_hMutex);
 	ECSessionGroupInfo ecSessionGroup(sProfileProps.strServerPath, sProfileProps.strProfileName);
 	auto result = m_mapSessionGroupIds.emplace(ecSessionGroup, 0);
 	if (!result.second)
@@ -48,7 +49,7 @@ HRESULT ECSessionGroupManager::GetSessionGroupData(ECSESSIONGROUPID ecSessionGro
 	HRESULT hr = hrSuccess;
 	ECSessionGroupInfo ecSessionGroup(sProfileProps.strServerPath, sProfileProps.strProfileName);
 	SessionGroupData *lpData = NULL;
-	scoped_rlock lock(m_hMutex);
+	std::lock_guard lock(m_hMutex);
 
 	auto result = m_mapSessionGroups.emplace(ecSessionGroup, nullptr);
 	if (result.second) {

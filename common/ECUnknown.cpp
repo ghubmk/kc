@@ -3,6 +3,7 @@
  * Copyright 2005 - 2016 Zarafa and its licensors
  */
 #include <algorithm>
+#include <mutex>
 #include <string>
 #include <kopano/platform.h>
 #include <mapidefs.h>
@@ -51,7 +52,7 @@ HRESULT ECUnknown::QueryInterface(REFIID refiid, void **lppInterface) {
 HRESULT ECUnknown::AddChild(ECUnknown *lpChild) {
 	if (lpChild == nullptr)
 		return hrSuccess;
-	scoped_lock locker(mutex);
+	std::lock_guard locker(mutex);
 	lstChildren.emplace_back(lpChild);
 	lpChild->SetParent(this);
 	return hrSuccess;

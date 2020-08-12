@@ -111,7 +111,7 @@ void BTSession::GetClientApplicationVersion(std::string *lpstrClientApplicationV
 
 void BTSession::GetClientApplicationMisc(std::string *lpstrClientApplicationMisc)
 {
-	scoped_lock lock(m_hRequestStats);
+	std::lock_guard lock(m_hRequestStats);
         lpstrClientApplicationMisc->assign(m_strClientApplicationMisc);
 }
 
@@ -158,14 +158,14 @@ ECRESULT BTSession::GetNewSourceKey(SOURCEKEY* lpSourceKey){
 void BTSession::lock()
 {
 	// Increase our refcount by one
-	scoped_lock lock(m_hThreadReleasedMutex);
+	std::lock_guard lock(m_hThreadReleasedMutex);
 	++m_ulRefCount;
 }
 
 void BTSession::unlock()
 {
 	// Decrease our refcount by one, signal ThreadReleased if RefCount == 0
-	scoped_lock lock(m_hThreadReleasedMutex);
+	std::lock_guard lock(m_hThreadReleasedMutex);
 	--m_ulRefCount;
 	if(!IsLocked())
 		m_hThreadReleased.notify_one();
@@ -178,7 +178,7 @@ time_t BTSession::GetIdleTime() const
 
 void BTSession::RecordRequest(struct soap* soap)
 {
-	scoped_lock lock(m_hRequestStats);
+	std::lock_guard lock(m_hRequestStats);
 	m_ulLastRequestPort = soap->port;
 	if (soap->proxy_from != nullptr && soap_info(soap)->bProxy)
 		m_strProxyHost = soap->host;
@@ -187,19 +187,19 @@ void BTSession::RecordRequest(struct soap* soap)
 
 unsigned int BTSession::GetRequests()
 {
-	scoped_lock lock(m_hRequestStats);
+	std::lock_guard lock(m_hRequestStats);
     return m_ulRequests;
 }
 
 std::string BTSession::GetProxyHost()
 {
-	scoped_lock lock(m_hRequestStats);
+	std::lock_guard lock(m_hRequestStats);
 	return m_strProxyHost;
 }
 
 size_t BTSession::GetInternalObjectSize()
 {
-	scoped_lock lock(m_hRequestStats);
+	std::lock_guard lock(m_hRequestStats);
 	return MEMORY_USAGE_STRING(m_strSourceAddr) +
 			MEMORY_USAGE_STRING(m_strProxyHost);
 }
@@ -369,7 +369,7 @@ void ECSession::AddBusyState(pthread_t threadId, const char *lpszState,
 		ec_log_err("Invalid argument \"lpszState\" in call to ECSession::AddBusyState()");
 		return;
 	}
-	scoped_lock lock(m_hStateLock);
+	std::lock_guard lock(m_hStateLock);
 	m_mapBusyStates[threadId].threadid = threadId;
 	m_mapBusyStates[threadId].state = SESSION_STATE_PROCESSING;
 	/* These are for asynchronous evaluation by ECStatsTables */
@@ -382,7 +382,7 @@ void ECSession::AddBusyState(pthread_t threadId, const char *lpszState,
 
 void ECSession::UpdateBusyState(pthread_t threadId, int state)
 {
-	scoped_lock lock(m_hStateLock);
+	std::lock_guard lock(m_hStateLock);
 	auto i = m_mapBusyStates.find(threadId);
 	if (i != m_mapBusyStates.cend())
 		i->second.state = state;
@@ -392,7 +392,7 @@ void ECSession::UpdateBusyState(pthread_t threadId, int state)
 
 void ECSession::RemoveBusyState(pthread_t threadId)
 {
-	scoped_lock lock(m_hStateLock);
+	std::lock_guard lock(m_hStateLock);
 
 	auto i = m_mapBusyStates.find(threadId);
 	if (i == m_mapBusyStates.cend()) {
@@ -409,14 +409,14 @@ void ECSession::GetBusyStates(std::list<BUSYSTATE> *lpStates)
 	// this map is very small, since a session only performs one or two functions at a time
 	// so the lock time is short, which will block _all_ incoming functions
 	lpStates->clear();
-	scoped_lock lock(m_hStateLock);
+	std::lock_guard lock(m_hStateLock);
 	for (const auto &p : m_mapBusyStates)
 		lpStates->emplace_back(p.second);
 }
 
 void ECSession::AddClocks(double dblUser, double dblSystem, double dblReal)
 {
-	scoped_lock lock(m_hRequestStats);
+	std::lock_guard lock(m_hRequestStats);
 	m_dblUser += dblUser;
 	m_dblSystem += dblSystem;
 	m_dblReal += dblReal;
@@ -424,7 +424,7 @@ void ECSession::AddClocks(double dblUser, double dblSystem, double dblReal)
 
 void ECSession::GetClocks(double *lpdblUser, double *lpdblSystem, double *lpdblReal)
 {
-	scoped_lock lock(m_hRequestStats);
+	std::lock_guard lock(m_hRequestStats);
 	*lpdblUser = m_dblUser;
 	*lpdblSystem = m_dblSystem;
 	*lpdblReal = m_dblReal;
@@ -432,13 +432,13 @@ void ECSession::GetClocks(double *lpdblUser, double *lpdblSystem, double *lpdblR
 
 void ECSession::GetClientVersion(std::string *lpstrVersion)
 {
-	scoped_lock lock(m_hRequestStats);
+	std::lock_guard lock(m_hRequestStats);
     lpstrVersion->assign(m_strClientVersion);
 }
 
 void ECSession::GetClientApp(std::string *lpstrClientApp)
 {
-	scoped_lock lock(m_hRequestStats);
+	std::lock_guard lock(m_hRequestStats);
     lpstrClientApp->assign(m_strClientApp);
 }
 
@@ -484,7 +484,7 @@ ECRESULT ECSession::GetObjectFromEntryId(const entryId *lpEntryId, unsigned int 
 
 ECRESULT ECSession::LockObject(unsigned int ulObjId)
 {
-	scoped_lock lock(m_hLocksLock);
+	std::lock_guard lock(m_hLocksLock);
 	auto res = m_mapLocks.emplace(ulObjId, ECObjectLock());
 	if (res.second)
 		return m_lpSessionManager->GetLockManager()->LockObject(ulObjId, m_sessionID, &res.first->second);
@@ -493,7 +493,7 @@ ECRESULT ECSession::LockObject(unsigned int ulObjId)
 
 ECRESULT ECSession::UnlockObject(unsigned int ulObjId)
 {
-	scoped_lock lock(m_hLocksLock);
+	std::lock_guard lock(m_hLocksLock);
 
 	auto i = m_mapLocks.find(ulObjId);
 	if (i == m_mapLocks.cend())

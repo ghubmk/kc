@@ -58,7 +58,7 @@ HRESULT ECNotifyMaster::Create(SessionGroupData *lpData, ECNotifyMaster **lppMas
 
 HRESULT ECNotifyMaster::ConnectToSession()
 {
-	scoped_rlock biglock(m_hMutex);
+	std::lock_guard biglock(m_hMutex);
 
 	/* This function can be called from NotifyWatch, and could race against StopNotifyWatch */
 	if (m_bThreadExit)
@@ -80,7 +80,7 @@ HRESULT ECNotifyMaster::ConnectToSession()
 
 HRESULT ECNotifyMaster::AddSession(ECNotifyClient* lpClient)
 {
-	scoped_rlock biglock(m_hMutex);
+	std::lock_guard biglock(m_hMutex);
 
 	m_listNotifyClients.emplace_back(lpClient);
 	/* Enable Notifications */
@@ -94,7 +94,7 @@ HRESULT ECNotifyMaster::AddSession(ECNotifyClient* lpClient)
 
 HRESULT ECNotifyMaster::ReleaseSession(ECNotifyClient* lpClient)
 {
-	scoped_rlock biglock(m_hMutex);
+	std::lock_guard biglock(m_hMutex);
 
 	/* Remove all connections attached to client */
 	auto iter = m_mapConnections.cbegin();
@@ -128,14 +128,14 @@ HRESULT ECNotifyMaster::ReserveConnection(ULONG *lpulConnection)
 
 HRESULT ECNotifyMaster::ClaimConnection(ECNotifyClient* lpClient, NOTIFYCALLBACK fnCallback, ULONG ulConnection)
 {
-	scoped_rlock lock(m_hMutex);
+	std::lock_guard lock(m_hMutex);
 	m_mapConnections.emplace(ulConnection, ECNotifySink(lpClient, fnCallback));
 	return hrSuccess;
 }
 
 HRESULT ECNotifyMaster::DropConnection(ULONG ulConnection)
 {
-	scoped_rlock lock(m_hMutex);
+	std::lock_guard lock(m_hMutex);
 	m_mapConnections.erase(ulConnection);
 	return hrSuccess;
 }
@@ -278,7 +278,7 @@ void* ECNotifyMaster::NotifyWatch(void *pTmpNotifyMaster)
 			if (pNotifyMaster->m_bThreadExit)
 				return nullptr;
 			// We have a new session ID, notify reload
-			scoped_rlock lock(pNotifyMaster->m_hMutex);
+			std::lock_guard lock(pNotifyMaster->m_hMutex);
 			for (auto ptr : pNotifyMaster->m_listNotifyClients)
 				ptr->NotifyReload();
 			continue;
@@ -308,7 +308,7 @@ void* ECNotifyMaster::NotifyWatch(void *pTmpNotifyMaster)
 			 * Be careful when locking this, Client->m_hMutex has priority over Master->m_hMutex
 			 * which means we should NEVER call a Client function while holding the Master->m_hMutex!
 			 */
-			scoped_rlock lock(pNotifyMaster->m_hMutex);
+			std::lock_guard lock(pNotifyMaster->m_hMutex);
 			auto iterClient = pNotifyMaster->m_mapConnections.find(p.first);
 			if (iterClient == pNotifyMaster->m_mapConnections.cend())
 				continue;

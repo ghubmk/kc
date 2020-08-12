@@ -5,6 +5,7 @@
 #include <kopano/platform.h>
 #include <algorithm>
 #include <chrono>
+#include <mutex>
 #include <mapix.h>
 #include <kopano/ECGuid.h>
 #include <kopano/memory.hpp>
@@ -518,7 +519,7 @@ exit:
  */
 ECRESULT ECFifoBuffer::Close(close_flags flags)
 {
-	scoped_lock locker(m_hMutex);
+	std::lock_guard locker(m_hMutex);
 	if (flags & cfRead) {
 		m_bReaderClosed = true;
 		m_hCondNotFull.notify_one();

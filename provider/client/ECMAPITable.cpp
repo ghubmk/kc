@@ -2,6 +2,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  * Copyright 2005 - 2016 Zarafa and its licensors
  */
+#include <mutex>
 #include <string>
 #include <kopano/platform.h>
 #include <mapicode.h>
@@ -78,7 +79,7 @@ HRESULT ECMAPITable::Advise(ULONG ulEventMask, LPMAPIADVISESINK lpAdviseSink, UL
 	if (lpulConnection == nullptr)
 		return MAPI_E_INVALID_PARAMETER;
 
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	auto hr = FlushDeferred();
 	if(hr != hrSuccess)
 		return hr;
@@ -93,14 +94,14 @@ HRESULT ECMAPITable::Advise(ULONG ulEventMask, LPMAPIADVISESINK lpAdviseSink, UL
 		return hr;
 
 	// We lock the connection list separately
-	scoped_rlock l_conn(m_hMutexConnectionList);
+	std::lock_guard l_conn(m_hMutexConnectionList);
 	m_ulConnectionList.emplace(*lpulConnection);
 	return hrSuccess;
 }
 
 HRESULT ECMAPITable::Unadvise(ULONG ulConnection)
 {
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	auto hr = FlushDeferred();
 	if(hr != hrSuccess)
 		return hr;
@@ -128,7 +129,7 @@ HRESULT ECMAPITable::SetColumns(const SPropTagArray *lpPropTagArray,
 	if(lpPropTagArray == NULL || lpPropTagArray->cValues == 0)
 		return MAPI_E_INVALID_PARAMETER;
 
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	auto hr = MAPIAllocateBuffer(CbNewSPropTagArray(lpPropTagArray->cValues), &~m_lpSetColumns);
 	if (hr != hrSuccess)
 		return hr;
@@ -142,7 +143,7 @@ HRESULT ECMAPITable::SetColumns(const SPropTagArray *lpPropTagArray,
 
 HRESULT ECMAPITable::QueryColumns(ULONG ulFlags, LPSPropTagArray *lppPropTagArray)
 {
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	auto hr = FlushDeferred();
 	if(hr != hrSuccess)
 		return hr;
@@ -154,7 +155,7 @@ HRESULT ECMAPITable::QueryColumns(ULONG ulFlags, LPSPropTagArray *lppPropTagArra
 
 HRESULT ECMAPITable::GetRowCount(ULONG ulFlags, ULONG *lpulCount)
 {
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	auto hr = FlushDeferred();
 	if(hr != hrSuccess)
 		return hr;
@@ -164,7 +165,7 @@ HRESULT ECMAPITable::GetRowCount(ULONG ulFlags, ULONG *lpulCount)
 
 HRESULT ECMAPITable::SeekRow(BOOKMARK bkOrigin, LONG lRowCount, LONG *lplRowsSought)
 {
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	auto hr = FlushDeferred();
 	if (hr != hrSuccess)
 		return hr;
@@ -173,7 +174,7 @@ HRESULT ECMAPITable::SeekRow(BOOKMARK bkOrigin, LONG lRowCount, LONG *lplRowsSou
 
 HRESULT ECMAPITable::SeekRowApprox(ULONG ulNumerator, ULONG ulDenominator)
 {
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	auto hr = FlushDeferred();
 	if(hr != hrSuccess)
 		return hr;
@@ -186,7 +187,7 @@ HRESULT ECMAPITable::SeekRowApprox(ULONG ulNumerator, ULONG ulDenominator)
 
 HRESULT ECMAPITable::QueryPosition(ULONG *lpulRow, ULONG *lpulNumerator, ULONG *lpulDenominator)
 {
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	auto hr = FlushDeferred();
 	if(hr != hrSuccess)
 		return hr;
@@ -206,7 +207,7 @@ HRESULT ECMAPITable::FindRow(const SRestriction *lpRestriction,
 	if (lpRestriction == NULL)
 		return MAPI_E_INVALID_PARAMETER;
 
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	auto hr = FlushDeferred();
 	if(hr != hrSuccess)
 		return hr;
@@ -216,7 +217,7 @@ HRESULT ECMAPITable::FindRow(const SRestriction *lpRestriction,
 HRESULT ECMAPITable::Restrict(const SRestriction *lpRestriction, ULONG ulFlags)
 {
 	HRESULT hr = hrSuccess;
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 
     if(lpRestriction) {
 		hr = MAPIAllocateBuffer(sizeof(SRestriction), &~m_lpRestrict);
@@ -236,7 +237,7 @@ HRESULT ECMAPITable::Restrict(const SRestriction *lpRestriction, ULONG ulFlags)
 
 HRESULT ECMAPITable::CreateBookmark(BOOKMARK* lpbkPosition)
 {
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	auto hr = FlushDeferred();
 	if(hr != hrSuccess)
 		return hr;
@@ -245,7 +246,7 @@ HRESULT ECMAPITable::CreateBookmark(BOOKMARK* lpbkPosition)
 
 HRESULT ECMAPITable::FreeBookmark(BOOKMARK bkPosition)
 {
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	auto hr = FlushDeferred();
 	if(hr != hrSuccess)
 		return hr;
@@ -258,7 +259,7 @@ HRESULT ECMAPITable::SortTable(const SSortOrderSet *lpSortCriteria,
 	if (lpSortCriteria == NULL)
 		return MAPI_E_INVALID_PARAMETER;
 
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	auto hr = KAllocCopy(lpSortCriteria, CbSSortOrderSet(lpSortCriteria), &~lpsSortOrderSet);
 	if (hr != hrSuccess)
 		return hr;
@@ -273,7 +274,7 @@ HRESULT ECMAPITable::SortTable(const SSortOrderSet *lpSortCriteria,
 HRESULT ECMAPITable::QuerySortOrder(LPSSortOrderSet *lppSortCriteria)
 {
 	memory_ptr<SSortOrderSet> lpSortCriteria;
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	auto hr = FlushDeferred();
 	if(hr != hrSuccess)
 		return hr;
@@ -292,7 +293,7 @@ HRESULT ECMAPITable::QuerySortOrder(LPSSortOrderSet *lppSortCriteria)
 
 HRESULT ECMAPITable::Abort()
 {
-	scoped_rlock biglock(m_hLock);
+	std::lock_guard biglock(m_hLock);
 	FlushDeferred();
 	/*
 	 * Fixme: sent this call to the server, and breaks the search!
@@ -303,7 +304,7 @@ HRESULT ECMAPITable::Abort()
 
 HRESULT ECMAPITable::ExpandRow(ULONG cbInstanceKey, LPBYTE pbInstanceKey, ULONG ulRowCount, ULONG ulFlags, LPSRowSet * lppRows, ULONG *lpulMoreRows)
 {
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	auto hr = FlushDeferred();
 	if(hr != hrSuccess)
 		return hr;
@@ -313,7 +314,7 @@ HRESULT ECMAPITable::ExpandRow(ULONG cbInstanceKey, LPBYTE pbInstanceKey, ULONG 
 
 HRESULT ECMAPITable::CollapseRow(ULONG cbInstanceKey, LPBYTE pbInstanceKey, ULONG ulFlags, ULONG *lpulRowCount)
 {
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	auto hr = FlushDeferred();
 	if(hr != hrSuccess)
 		return hr;
@@ -324,7 +325,7 @@ HRESULT ECMAPITable::CollapseRow(ULONG cbInstanceKey, LPBYTE pbInstanceKey, ULON
 // @todo do we need lock here, currently we do. maybe we must return MAPI_E_TIMEOUT
 HRESULT ECMAPITable::WaitForCompletion(ULONG ulFlags, ULONG ulTimeout, ULONG *lpulTableStatus)
 {
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	auto hr = FlushDeferred();
 	if(hr != hrSuccess)
 		return hr;
@@ -335,7 +336,7 @@ HRESULT ECMAPITable::WaitForCompletion(ULONG ulFlags, ULONG ulTimeout, ULONG *lp
 
 HRESULT ECMAPITable::GetCollapseState(ULONG ulFlags, ULONG cbInstanceKey, LPBYTE lpbInstanceKey, ULONG *lpcbCollapseState, LPBYTE *lppbCollapseState)
 {
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	auto hr = FlushDeferred();
 	if(hr != hrSuccess)
 		return hr;
@@ -345,7 +346,7 @@ HRESULT ECMAPITable::GetCollapseState(ULONG ulFlags, ULONG cbInstanceKey, LPBYTE
 
 HRESULT ECMAPITable::SetCollapseState(ULONG ulFlags, ULONG cbCollapseState, LPBYTE pbCollapseState, BOOKMARK *lpbkLocation)
 {
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	auto hr = FlushDeferred();
 	if(hr != hrSuccess)
 		return hr;
@@ -370,7 +371,7 @@ HRESULT ECMAPITable::HrSetTableOps(WSTableView *ops, bool fLoad)
 
 HRESULT ECMAPITable::QueryRows(LONG lRowCount, ULONG ulFlags, LPSRowSet *lppRows)
 {
-	scoped_rlock lock(m_hLock);
+	std::lock_guard lock(m_hLock);
 	if (!IsDeferred())
 		/* Send the request to the TableOps object, which will send the request to the server. */
 		return lpTableOps->HrQueryRows(lRowCount, ulFlags, lppRows);
@@ -387,7 +388,7 @@ HRESULT ECMAPITable::Reload(void *lpParam)
 	// will be locked. Since normally m_hLock is locked before SOAP, locking m_hLock *after* SOAP here
 	// would be a lock-order violation causing deadlocks.
 
-	scoped_rlock lock(lpThis->m_hMutexConnectionList);
+	std::lock_guard lock(lpThis->m_hMutexConnectionList);
 
 	// The underlying data has been reloaded, therefore we must re-register the advises. This is called
 	// after the transport has re-established its state

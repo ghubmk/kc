@@ -2091,7 +2091,7 @@ int IMAP::IdleAdviseCallback2(void *lpContext, unsigned int cNotif,
 	if (!lpIMAP)
 		return MAPI_E_CALL_FAILED;
 
-	scoped_lock l_idle(lpIMAP->m_mIdleLock);
+	std::lock_guard l_idle(lpIMAP->m_mIdleLock);
 	if (!lpIMAP->m_bIdleMode)
 		return MAPI_E_CALL_FAILED;
 
@@ -2253,7 +2253,7 @@ exit:
  */
 HRESULT IMAP::HrDone(bool bSendResponse) {
 	// TODO: maybe add sleep here, so thunderbird gets all notifications?
-	scoped_lock l_idle(m_mIdleLock);
+	std::lock_guard l_idle(m_mIdleLock);
 
 	if (bSendResponse) {
 		if (m_bIdleMode)

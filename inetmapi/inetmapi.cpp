@@ -47,7 +47,7 @@ static bool vmimeInitialized = false;
 
 static void InitializeVMime()
 {
-	scoped_lock l_vm(vmInitLock);
+	std::lock_guard l_vm(vmInitLock);
 	try {
 		vmime::platform::getHandler();
 	} catch (const vmime::exceptions::no_platform_handler &) {
