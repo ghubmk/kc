@@ -52,7 +52,6 @@ private:
 	HRESULT SaveProps(const std::list<SPropValue> *lpPropList, IMAPIProp *, unsigned int flags = 0);
 	HRESULT SaveRecipList(const std::list<icalrecip> *lplstRecip, ULONG ulFlag, LPMESSAGE lpMessage);
 	memory_ptr<SPropTagArray> m_lpNamedProps;
-	ULONG m_ulErrorCount = 0;
 	TIMEZONE_STRUCT ttServerTZ;
 	std::string strServerTimeZone;
 
@@ -106,7 +105,6 @@ ICalToMapiImpl::ICalToMapiImpl(IMAPIProp *lpPropObj, LPADRBOOK lpAdrBook, bool b
  */
 void ICalToMapiImpl::Clean()
 {
-	m_ulErrorCount = 0;
 	m_vMessages.clear();
 	m_bHaveFreeBusy = false;
 	m_lstUsers.clear();
@@ -173,8 +171,6 @@ HRESULT ICalToMapiImpl::ParseICal2(const char *ical_data,
 	if (icalcomponent_isa(lpicCalendar.get()) != ICAL_VCALENDAR_COMPONENT &&
 	    icalcomponent_isa(lpicCalendar.get()) != ICAL_XROOT_COMPONENT)
 		return MAPI_E_INVALID_OBJECT;
-
-	m_ulErrorCount = icalcomponent_count_errors(lpicCalendar.get());
 
 	/* Find all timezones, place in map. */
 	for (auto lpicComponent = icalcomponent_get_first_component(lpicCalendar.get(), ICAL_VTIMEZONE_COMPONENT);
@@ -243,8 +239,6 @@ HRESULT ICalToMapiImpl::ParseICal2(const char *ical_data,
 
 	// TODO: sort m_vMessages on sBinGuid in icalitem struct, so caldav server can use optimized algorithm for finding the same items in MAPI
 	// seems this happens quite fast .. don't know what's wrong with exchange's ical
-// 	if (m_ulErrorCount != 0)
-// 		hr = MAPI_W_ERRORS_RETURNED;
 	return hrSuccess;
 }
 
