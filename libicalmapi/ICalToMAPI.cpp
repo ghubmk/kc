@@ -51,6 +51,9 @@ private:
 	HRESULT SaveAttendeesString(const std::list<icalrecip> *lplstRecip, LPMESSAGE lpMessage);
 	HRESULT SaveProps(const std::list<SPropValue> *lpPropList, IMAPIProp *, unsigned int flags = 0);
 	HRESULT SaveRecipList(const std::list<icalrecip> *lplstRecip, ULONG ulFlag, LPMESSAGE lpMessage);
+	void parse_ical2(const std::string &cset, const std::string &tzpar, IMailUser *, icalcomponent *);
+	void parse_ical3(const std::string &cset, timezone_map &, IMailUser *, icalcomponent *cal, icalcomponent *vev, icalitem *&prev);
+
 	memory_ptr<SPropTagArray> m_lpNamedProps;
 	TIMEZONE_STRUCT ttServerTZ;
 	std::string strServerTimeZone;
@@ -130,11 +133,6 @@ HRESULT ICalToMapiImpl::ParseICal2(const char *ical_data,
     const std::string &strCharset, const std::string &strServerTZparam,
     IMailUser *lpMailUser, unsigned int ulFlags)
 {
-	TIMEZONE_STRUCT ttTimeZone{};
-	timezone_map tzMap;
-	std::string strTZID;
-	icalitem *item = nullptr, *previtem = nullptr;
-
 	Clean();
 	if (m_lpNamedProps == NULL) {
 		auto hr = HrLookupNames(m_lpPropObj, &~m_lpNamedProps);
@@ -167,15 +165,34 @@ HRESULT ICalToMapiImpl::ParseICal2(const char *ical_data,
 		}
 		return hrSuccess;
 	}
+	parse_ical2(strCharset, strServerTZparam, lpMailUser, lpicCalendar.get());
+	// TODO: sort m_vMessages on sBinGuid in icalitem struct, so caldav server can use optimized algorithm for finding the same items in MAPI
+	// seems this happens quite fast .. don't know what's wrong with exchange's ical
+	return hrSuccess;
+}
 
-	if (icalcomponent_isa(lpicCalendar.get()) != ICAL_VCALENDAR_COMPONENT &&
-	    icalcomponent_isa(lpicCalendar.get()) != ICAL_XROOT_COMPONENT)
-		return MAPI_E_INVALID_OBJECT;
+void ICalToMapiImpl::parse_ical2(const std::string &cset,
+    const std::string &strServerTZparam, IMailUser *mailuser, icalcomponent *obj)
+{
+	auto type = icalcomponent_isa(obj);
+	if (type == ICAL_XROOT_COMPONENT) {
+		for (auto c = icalcomponent_get_first_component(obj, ICAL_VCALENDAR_COMPONENT);
+		     c != nullptr;
+		     c = icalcomponent_get_next_component(obj, ICAL_VCALENDAR_COMPONENT))
+			parse_ical2(cset, strServerTZparam, mailuser, c);
+		return;
+	}
+	if (type != ICAL_VCALENDAR_COMPONENT)
+		return;
 
 	/* Find all timezones, place in map. */
-	for (auto lpicComponent = icalcomponent_get_first_component(lpicCalendar.get(), ICAL_VTIMEZONE_COMPONENT);
+	TIMEZONE_STRUCT ttTimeZone{};
+	timezone_map tzMap;
+	std::string strTZID;
+
+	for (auto lpicComponent = icalcomponent_get_first_component(obj, ICAL_VTIMEZONE_COMPONENT);
 	     lpicComponent != nullptr;
-	     lpicComponent = icalcomponent_get_next_component(lpicCalendar.get(), ICAL_VTIMEZONE_COMPONENT))
+	     lpicComponent = icalcomponent_get_next_component(obj, ICAL_VTIMEZONE_COMPONENT))
 	{
 		auto hr = HrParseVTimeZone(lpicComponent, &strTZID, &ttTimeZone);
 		if (hr != hrSuccess)
@@ -193,53 +210,56 @@ HRESULT ICalToMapiImpl::ParseICal2(const char *ical_data,
 	}
 
 	// find all "messages" vevent, vtodo, vjournal, ...?
-	for (auto lpicComponent = icalcomponent_get_first_component(lpicCalendar.get(), ICAL_ANY_COMPONENT);
-	     lpicComponent != nullptr;
-	     lpicComponent = icalcomponent_get_next_component(lpicCalendar.get(), ICAL_ANY_COMPONENT))
-	{
-		std::unique_ptr<VConverter> lpVEC;
-		auto type = icalcomponent_isa(lpicComponent);
-		switch (type) {
-		case ICAL_VEVENT_COMPONENT:
-			static_assert(std::is_polymorphic<VEventConverter>::value, "VEventConverter needs to be polymorphic for unique_ptr to work");
-			lpVEC.reset(new VEventConverter(m_lpAdrBook, &tzMap, m_lpNamedProps, strCharset, false, m_bNoRecipients, lpMailUser));
-			break;
-		case ICAL_VTODO_COMPONENT:
-			static_assert(std::is_polymorphic<VTodoConverter>::value, "VTodoConverter needs to be polymorphic for unique_ptr to work");
-			lpVEC.reset(new VTodoConverter(m_lpAdrBook, &tzMap, m_lpNamedProps, strCharset, false, m_bNoRecipients, lpMailUser));
-			break;
-		case ICAL_VFREEBUSY_COMPONENT:
-			break;
-		case ICAL_VJOURNAL_COMPONENT:
-		default:
-			continue;
-		};
+	icalitem *previtem = nullptr;
+	for (auto c = icalcomponent_get_first_component(obj, ICAL_ANY_COMPONENT);
+	     c != nullptr;
+	     c = icalcomponent_get_next_component(obj, ICAL_ANY_COMPONENT))
+		parse_ical3(cset, tzMap, mailuser, obj, c, previtem);
+}
 
-		HRESULT hr = hrSuccess;
-		switch (type) {
-		case ICAL_VFREEBUSY_COMPONENT:
-			hr = HrGetFbInfo(lpicComponent, &m_tFbStart, &m_tFbEnd, &m_strUID, &m_lstUsers);
-			if (hr == hrSuccess)
-				m_bHaveFreeBusy = true;
-			break;
-		case ICAL_VEVENT_COMPONENT:
-		case ICAL_VTODO_COMPONENT:
-			hr = lpVEC->HrICal2MAPI(lpicCalendar.get(), lpicComponent, previtem, &item);
-			break;
-		default:
-			break;
-		};
+void ICalToMapiImpl::parse_ical3(const std::string &strCharset,
+    timezone_map &tzMap, IMailUser *lpMailUser, icalcomponent *calendar,
+    icalcomponent *lpicComponent, icalitem *&previtem)
+{
+	std::unique_ptr<VConverter> lpVEC;
+	auto type = icalcomponent_isa(lpicComponent);
+	switch (type) {
+	case ICAL_VEVENT_COMPONENT:
+		static_assert(std::is_polymorphic<VEventConverter>::value, "VEventConverter needs to be polymorphic for unique_ptr to work");
+		lpVEC.reset(new VEventConverter(m_lpAdrBook, &tzMap, m_lpNamedProps, strCharset, false, m_bNoRecipients, lpMailUser));
+		break;
+	case ICAL_VTODO_COMPONENT:
+		static_assert(std::is_polymorphic<VTodoConverter>::value, "VTodoConverter needs to be polymorphic for unique_ptr to work");
+		lpVEC.reset(new VTodoConverter(m_lpAdrBook, &tzMap, m_lpNamedProps, strCharset, false, m_bNoRecipients, lpMailUser));
+		break;
+	case ICAL_VFREEBUSY_COMPONENT:
+		break;
+	default:
+		return;
+	};
 
-		if (hr == hrSuccess && item != nullptr && previtem != item) {
-			// previtem is equal to item when item was only updated (e.g. vevent exception)
-			m_vMessages.emplace_back(item);
-			previtem = item;
-		}
+	HRESULT hr = hrSuccess;
+	icalitem *item = nullptr;
+
+	switch (type) {
+	case ICAL_VFREEBUSY_COMPONENT:
+		hr = HrGetFbInfo(lpicComponent, &m_tFbStart, &m_tFbEnd, &m_strUID, &m_lstUsers);
+		if (hr == hrSuccess)
+			m_bHaveFreeBusy = true;
+		break;
+	case ICAL_VEVENT_COMPONENT:
+	case ICAL_VTODO_COMPONENT:
+		hr = lpVEC->HrICal2MAPI(calendar, lpicComponent, previtem, &item);
+		break;
+	default:
+		break;
+	};
+
+	if (hr == hrSuccess && item != nullptr && previtem != item) {
+		// previtem is equal to item when item was only updated (e.g. vevent exception)
+		m_vMessages.emplace_back(item);
+		previtem = item;
 	}
-
-	// TODO: sort m_vMessages on sBinGuid in icalitem struct, so caldav server can use optimized algorithm for finding the same items in MAPI
-	// seems this happens quite fast .. don't know what's wrong with exchange's ical
-	return hrSuccess;
 }
 
 /** 
