@@ -164,30 +164,6 @@ class KC_EXPORT_DYCAST iconv_context KC_FINAL :
 	To_Type	m_to;
 };
 
-/**
- * @brief	Converts a string to a string with a different charset.
- *
- * convert_to comes in three forms:
- *
- * 1. convert_to<dsttype>(dstcharset, srcstring, srcsize, srccharset)
- * 2. convert_to<dsttype>(srcstring, srcsize, srccharset)
- *    autoderived: dstcharset (from dsttype)
- *    see iconv_charset<dsttype>::name() for the charset that will be assumed
- * 3. convert_to<dsttype>(srcstring)
- *    autoderived: dstcharset, srcsize, srccharset
- *
- * Derivation happens with iconv_charset<> where the defaults are set.
- *
- * This is the function to call when a one of conversion from one charset to
- * another is required.
- * @tparam	  To_Type		The type of the destination string.
- * @param[in] _from			The string that is to be converted to another charset.
- * @return					The converted string.
- *
- * @note	Since this method needs to create an iconv object internally
- *			it is better to use a convert_context when multiple conversions
- *			need to be performed.
- */
 template<typename To_Type, typename From_Type>
 inline To_Type convert_to(const From_Type &from)
 {
@@ -227,11 +203,25 @@ public:
 	/**
 	 * @brief	Converts a string to a string with a different charset.
 	 *
-	 * The to- and from charsets are implicitly determined by on one side the
-	 * passed To_Type and on the other side the _from argument.
+	 * convert_to comes in three forms:
+	 *
+	 * 1. convert_to<dsttype>(dstcharset, srcstring, srcsize, srccharset)
+	 * 2. convert_to<dsttype>(srcstring, srcsize, srccharset)
+	 *    autoderived: dstcharset
+	 * 3. convert_to<dsttype>(srcstring)
+	 *    autoderived: dstcharset, srcsize, srccharset
+	 *
+	 * Derivation happens with iconv_charset<> where the defaults are set.
+	 *
+	 * This is the function to call when a one of conversion from one charset to
+	 * another is required.
 	 * @tparam	  To_Type		The type of the destination string.
 	 * @param[in] _from			The string that is to be converted to another charset.
 	 * @return					The converted string.
+	 *
+	 * @note	Since this method needs to create an iconv object internally
+	 *			it is better to use a convert_context when multiple conversions
+	 *			need to be performed.
 	 */
 	template<typename To_Type, typename From_Type>
 	KC_HIDDEN To_Type convert_to(const From_Type &from)
@@ -239,17 +229,6 @@ public:
 		return helper<To_Type>(*this).convert(from);
 	}
 
-	/**
-	 * @brief	Converts a string to a string with a different charset.
-	 *
-	 * The to charset is implicitly determined by the passed To_Type.
-	 * The from charset is passed in fromcode.
-	 * @tparam	  To_Type		The type of the destination string.
-	 * @param[in] _from			The string that is to be converted to another charset.
-	 * @param[in] cbBytes		The size in bytes of the string to convert.
-	 * @param[in] fromcode		The source charset.
-	 * @return					The converted string.
-	 */
 	template<typename To_Type, typename From_Type>
 	KC_HIDDEN To_Type convert_to(const From_Type &from, size_t cbBytes,
 	    const char *fromcode)
@@ -257,17 +236,6 @@ public:
 		return helper<To_Type>(*this).convert(from, cbBytes, fromcode);
 	}
 
-	/**
-	 * @brief	Converts a string to a string with a different charset.
-	 *
-	 * The to charset is passed in tocode.
-	 * The from charset is passed in fromcode.
-	 * @param[in] tocode		the destination charset.
-	 * @param[in] _from			The string that is to be converted to another charset.
-	 * @param[in] cbBytes		The size in bytes of the string to convert.
-	 * @param[in] fromcode		The source charset.
-	 * @return					The converted string.
-	 */
 	template<typename To_Type, typename From_Type>
 	KC_HIDDEN To_Type convert_to(const char *tocode,
 	    const From_Type &from, size_t cbBytes, const char *fromcode)
