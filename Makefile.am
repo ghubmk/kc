@@ -74,7 +74,7 @@ AM_CPPFLAGS = ${ZCPPFLAGS} -DLDAP_THREAD_SAFE \
 	${MYSQL_INCLUDES} ${SSL_CFLAGS} \
 	${s3_CFLAGS} ${kcoidc_CFLAGS} ${TCMALLOC_CFLAGS} \
 	${VMIME_CFLAGS} ${xapian_CFLAGS} ${XML2_CFLAGS}
-AM_CXXFLAGS = ${ZCXXFLAGS} -Wno-sign-compare
+AM_CXXFLAGS = ${ZCXXFLAGS} -Wno-sign-compare -pthread
 
 
 #

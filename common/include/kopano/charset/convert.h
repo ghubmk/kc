@@ -137,7 +137,7 @@ public:
 	 *			need to be performed.
 	 */
 	template<typename To_Type, typename From_Type>
-	KC_HIDDEN To_Type convert_to(const From_Type &from)
+	To_Type convert_to(const From_Type &from)
 	{
 		static_assert(!std::is_same<To_Type, From_Type>::value, "pointless conversion");
 		return get_context<To_Type, From_Type>(iconv_charset<To_Type>::name(), iconv_charset<From_Type>::name()).
@@ -145,16 +145,15 @@ public:
 	}
 
 	template<typename To_Type, typename From_Type>
-	KC_HIDDEN To_Type convert_to(const From_Type &from, size_t cbBytes,
-	    const char *fromcode)
+	To_Type convert_to(const From_Type &from, size_t cbBytes, const char *fromcode)
 	{
 		return get_context<To_Type, From_Type>(iconv_charset<To_Type>::name(), fromcode).
 		       convert(static_cast<To_Type *>(nullptr), iconv_charset<From_Type>::rawptr(from), cbBytes);
 	}
 
 	template<typename To_Type, typename From_Type>
-	KC_HIDDEN To_Type convert_to(const char *tocode,
-	    const From_Type &from, size_t cbBytes, const char *fromcode)
+	To_Type convert_to(const char *tocode, const From_Type &from,
+	    size_t cbBytes, const char *fromcode)
 	{
 		return get_context<To_Type, From_Type>(tocode, fromcode).
 		       convert(static_cast<To_Type *>(nullptr), iconv_charset<From_Type>::rawptr(from), cbBytes);
@@ -233,17 +232,19 @@ private:
 	convert_context &operator=(const convert_context &) = delete;
 };
 
+extern KC_EXPORT thread_local convert_context global_convert_context;
+
 template<typename To_Type, typename From_Type>
 inline To_Type convert_to(const From_Type &from)
 {
 	static_assert(!std::is_same<To_Type, From_Type>::value, "pointless conversion");
-	return convert_context().convert_to<To_Type>(from);
+	return global_convert_context.convert_to<To_Type>(from);
 }
 
 template<typename To_Type, typename From_Type> inline To_Type
 convert_to(const From_Type &from, size_t cbBytes, const char *fromcode)
 {
-	return convert_context().convert_to<To_Type>(iconv_charset<From_Type>::rawptr(from),
+	return global_convert_context.convert_to<To_Type>(iconv_charset<From_Type>::rawptr(from),
 	       cbBytes, fromcode);
 }
 
@@ -251,7 +252,7 @@ template<typename To_Type, typename From_Type>
 inline To_Type convert_to(const char *tocode, const From_Type &from,
     size_t cbBytes, const char *fromcode)
 {
-	return convert_context().convert_to<To_Type>(tocode,
+	return global_convert_context.convert_to<To_Type>(tocode,
 	       iconv_charset<From_Type>::rawptr(from), cbBytes, fromcode);
 }
 
