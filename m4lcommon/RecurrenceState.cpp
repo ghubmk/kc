@@ -281,14 +281,16 @@ HRESULT RecurrenceState::ParseBlob2(const char *lpData, size_t ulLen,
 			std::string strBytes;
             READSHORT(ulWideCharSubjectLength);
             READSTRING(strBytes, ulWideCharSubjectLength * sizeof(short));
-			TryConvert(converter, strBytes, ulWideCharSubjectLength * sizeof(short), "UCS-2LE", sExtendedException.strWideCharSubject);
+			TryConvert(strBytes, ulWideCharSubjectLength * sizeof(short),
+			           "UCS-2LE", sExtendedException.strWideCharSubject);
         }
 
         if (exc.ulOverrideFlags & ARO_LOCATION) {
 			std::string strBytes;
             READSHORT(ulWideCharLocationLength);
             READSTRING(strBytes, ulWideCharLocationLength * sizeof(short));
-			TryConvert(converter, strBytes, ulWideCharLocationLength * sizeof(short), "UCS-2LE", sExtendedException.strWideCharLocation);
+			TryConvert(strBytes, ulWideCharLocationLength * sizeof(short),
+			           "UCS-2LE", sExtendedException.strWideCharLocation);
         }
         
         if (exc.ulOverrideFlags & ARO_SUBJECT ||
@@ -347,9 +349,11 @@ HRESULT RecurrenceState::ParseBlob(const char *lpData, size_t ulLen,
 		cEx.ulOriginalStartDate = lstExceptions[i].ulOriginalStartDate;
 		// subject & location in UCS2
 		if (lstExceptions[i].ulOverrideFlags & ARO_SUBJECT)
-			TryConvert(converter, lstExceptions[i].strSubject, rawsize(lstExceptions[i].strSubject), "windows-1252", cEx.strWideCharSubject);
+			TryConvert(lstExceptions[i].strSubject, rawsize(lstExceptions[i].strSubject),
+			           "windows-1252", cEx.strWideCharSubject);
 		if (lstExceptions[i].ulOverrideFlags & ARO_LOCATION)
-			TryConvert(converter, lstExceptions[i].strLocation, rawsize(lstExceptions[i].strLocation), "windows-1252", cEx.strWideCharLocation);
+			TryConvert(lstExceptions[i].strLocation, rawsize(lstExceptions[i].strLocation),
+			           "windows-1252", cEx.strWideCharLocation);
 		lstExtendedExceptions.emplace_back(cEx);
 
 		// clear for next exception

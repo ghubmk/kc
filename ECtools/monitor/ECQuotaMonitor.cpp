@@ -537,11 +537,11 @@ HRESULT ECQuotaMonitor::CreateMessageProperties(ECUSER *lpecToUser,
 	auto hr = MAPIAllocateBuffer(sizeof(SPropValue) * ulPropArrayMax, &~lpPropArray);
 	if (hr != hrSuccess)
 		return hr;
-	if (TryConvert(converter, reinterpret_cast<const char *>(lpecToUser->lpszFullName), name) != hrSuccess) {
+	if (TryConvert(reinterpret_cast<const char *>(lpecToUser->lpszFullName), name) != hrSuccess) {
 		ec_log_err("Unable to convert To name \"%s\" to widechar, using empty name in entryid", reinterpret_cast<const char *>(lpecToUser->lpszFullName));
 		name.clear();
 	}
-	if (TryConvert(converter, reinterpret_cast<const char *>(lpecToUser->lpszMailAddress), email) != hrSuccess) {
+	if (TryConvert(reinterpret_cast<const char *>(lpecToUser->lpszMailAddress), email) != hrSuccess) {
 		ec_log_err("Unable to convert To email \"%s\" to widechar, using empty name in entryid", reinterpret_cast<const char *>(lpecToUser->lpszMailAddress));
 		email.clear();
 	}
@@ -552,11 +552,11 @@ HRESULT ECQuotaMonitor::CreateMessageProperties(ECUSER *lpecToUser,
 	     &cbToSearchKey, &~lpToSearchKey);
 	if (hr != hrSuccess)
 		return kc_perror("Failed creating email searchkey", hr);
-	if (TryConvert(converter, reinterpret_cast<const char *>(lpecFromUser->lpszFullName), name) != hrSuccess) {
+	if (TryConvert(reinterpret_cast<const char *>(lpecFromUser->lpszFullName), name) != hrSuccess) {
 		ec_log_err("Unable to convert From name \"%s\" to widechar, using empty name in entryid", reinterpret_cast<const char *>(lpecFromUser->lpszFullName));
 		name.clear();
 	}
-	if (TryConvert(converter, reinterpret_cast<const char *>(lpecFromUser->lpszMailAddress), email) != hrSuccess) {
+	if (TryConvert(reinterpret_cast<const char *>(lpecFromUser->lpszMailAddress), email) != hrSuccess) {
 		ec_log_err("Unable to convert From email \"%s\" to widechar, using empty name in entryid", reinterpret_cast<const char *>(lpecFromUser->lpszMailAddress));
 		email.clear();
 	}

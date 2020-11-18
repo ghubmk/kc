@@ -135,7 +135,8 @@ static std::wstring RTFFlushStateOutput(convert_context &convertContext,
 
 	if (sState[ulState].output.empty())
 		return wstrUnicode;
-	TryConvert(convertContext, sState[ulState].output, rawsize(sState[ulState].output), sState[ulState].szCharset, wstrUnicode);
+	TryConvert(sState[ulState].output, rawsize(sState[ulState].output),
+	           sState[ulState].szCharset, wstrUnicode);
 	sState[ulState].output.clear();
 	return wstrUnicode;
 }
@@ -403,7 +404,7 @@ HRESULT HrExtractHTMLFromTextRTF(const std::string &lpStrRTFIn,
 	       "<!-- Converted from text/plain format -->\r\n"
 	       "\r\n"; //FIXME create title on the fly ?
 
-	TryConvert(convertContext, tmp, rawsize(tmp), "us-ascii", wstrUnicodeTmp);
+	TryConvert(tmp, rawsize(tmp), "us-ascii", wstrUnicodeTmp);
 	strOutput.append(wstrUnicodeTmp);
 	InitRTFState(&sState[0]);
 
@@ -679,7 +680,7 @@ HRESULT HrExtractHTMLFromRealRTF(const std::string &lpStrRTFIn,
 	       "<!-- Converted from text/rtf format -->\r\n"
 	       "\r\n"; //FIXME create title on the fly ?
 
-	TryConvert(convertContext, tmp, rawsize(tmp), "us-ascii", wstrUnicodeTmp);
+	TryConvert(tmp, rawsize(tmp), "us-ascii", wstrUnicodeTmp);
 	strOutput.append(wstrUnicodeTmp);
 	InitRTFState(&sState[0]);
 
