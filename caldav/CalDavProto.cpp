@@ -14,6 +14,7 @@
 #include "PublishFreeBusy.h"
 #include "CalDavProto.h"
 #include <kopano/MAPIErrors.h>
+#include <kopano/charset/convert.h>
 #define kc_pdebug(s, r) hr_logcode((r), EC_LOGLEVEL_DEBUG, nullptr, (s))
 
 using namespace KC;
@@ -46,14 +47,12 @@ static const struct sMymap {
  *
  * @param[in] lpObj get the property tag from this object
  * @param[in] lpXmlPropName create the named prop string from this xml id
- * @param[in] converter a convert_context object
  * @param[in] ulFlags flags for GetIDsFromNames call (0 or MAPI_CREATE)
  *
  * @return the (named) property tag for the xml data, (named are set to PT_BINARY)
  */
 static ULONG GetPropIDForXMLProp(LPMAPIPROP lpObj,
-    const WEBDAVPROPNAME &sXmlPropName, convert_context &converter,
-    ULONG ulFlags = 0)
+    const WEBDAVPROPNAME &sXmlPropName, unsigned int ulFlags = 0)
 {
 	memory_ptr<MAPINAMEID> lpNameID;
 
@@ -63,7 +62,7 @@ static ULONG GetPropIDForXMLProp(LPMAPIPROP lpObj,
 			return sPropMap[i].ulPropTag;
 
 	auto strName = sXmlPropName.strNS + "#" + sXmlPropName.strPropname;
-	auto wstrName = converter.convert_to<std::wstring>(strName, rawsize(strName), "UTF-8");
+	auto wstrName = convert_to<std::wstring>(strName, rawsize(strName), "UTF-8");
 	auto hr = MAPIAllocateBuffer(sizeof(MAPINAMEID), &~lpNameID);
 	if (hr != hrSuccess)
 		return PR_NULL;
@@ -188,7 +187,7 @@ HRESULT CalDAV::HrHandlePropfindRoot(WEBDAVREQSTPROPS *sDavReqstProps, WEBDAVMUL
 	lpPropTagArr->cValues = cbsize;
 	// Get corresponding mapi properties.
 	for (const auto &iter : lpsDavProp->lstProps)
-		lpPropTagArr->aulPropTag[i++] = GetPropIDForXMLProp(lpMapiProp, iter.sPropName, m_converter);
+		lpPropTagArr->aulPropTag[i++] = GetPropIDForXMLProp(lpMapiProp, iter.sPropName);
 	hr = lpMapiProp->GetProps(lpPropTagArr, 0, &cbsize, &~lpSpropVal);
 	if (FAILED(hr))
 		return hr_lerr(hr, "Error in GetProps for user \"%ls\"", m_wstrUser.c_str());
@@ -288,7 +287,7 @@ HRESULT CalDAV::HrListCalEntries(WEBDAVREQSTPROPS *lpsWebRCalQry, WEBDAVMULTISTA
 	//FIXME what if the property mapping is not found.
 	unsigned int i = 4;
 	for (const auto &sDavProperty : sDavProp.lstProps)
-		lpPropTagArr->aulPropTag[i++] = GetPropIDForXMLProp(m_lpUsrFld, sDavProperty.sPropName, m_converter);
+		lpPropTagArr->aulPropTag[i++] = GetPropIDForXMLProp(m_lpUsrFld, sDavProperty.sPropName);
 	hr = m_lpUsrFld->GetProps(lpPropTagArr, 0, &cValues, &~lpProps);
 	if (FAILED(hr))
 		return kc_perror("Unable to receive folder properties", hr);
@@ -405,7 +404,7 @@ HRESULT CalDAV::HrHandleReport(WEBDAVRPTMGET *sWebRMGet, WEBDAVMULTISTATUS *sWeb
 	lpPropTagArr->aulPropTag[1] = CHANGE_PROP_TYPE(m_lpNamedProps->aulPropTag[PROP_PRIVATE], PT_BOOLEAN);
 	unsigned int i = 2;
 	for (const auto &sDavProperty : sDavProp.lstProps)
-		lpPropTagArr->aulPropTag[i++] = GetPropIDForXMLProp(m_lpUsrFld, sDavProperty.sPropName, m_converter);
+		lpPropTagArr->aulPropTag[i++] = GetPropIDForXMLProp(m_lpUsrFld, sDavProperty.sPropName);
 
 	hr = lpTable->SetColumns(lpPropTagArr, 0);
 	if(hr != hrSuccess)
@@ -574,7 +573,7 @@ HRESULT CalDAV::HrHandlePropertySearch(WEBDAVRPTMGET *sWebRMGet, WEBDAVMULTISTAT
 	for (i = 0; i < sWebRMGet->lstWebVal.size(); ++i, ++iterWebVal) {
 		auto content = U2W(iterWebVal->strValue);
 		SPropValue pv;
-		pv.ulPropTag = GetPropIDForXMLProp(lpAbCont, iterWebVal->sPropName, m_converter);
+		pv.ulPropTag = GetPropIDForXMLProp(lpAbCont, iterWebVal->sPropName);
 		pv.Value.lpszW = const_cast<wchar_t *>(content.c_str());
 		rst += ECContentRestriction(FL_SUBSTRING | FL_IGNORECASE, pv.ulPropTag, &pv, ECRestriction::Full);
 	}
@@ -597,7 +596,7 @@ HRESULT CalDAV::HrHandlePropertySearch(WEBDAVRPTMGET *sWebRMGet, WEBDAVMULTISTAT
 	lpPropTagArr->aulPropTag[2] = PR_ACCOUNT;
 	i = 3;
 	for (const auto &sDavProperty : sDavProp.lstProps)
-		lpPropTagArr->aulPropTag[i++] = GetPropIDForXMLProp(lpAbCont, sDavProperty.sPropName, m_converter);
+		lpPropTagArr->aulPropTag[i++] = GetPropIDForXMLProp(lpAbCont, sDavProperty.sPropName);
 
 	hr = lpTable->SetColumns(lpPropTagArr, 0);
 	if (hr != hrSuccess) {
@@ -1141,7 +1140,7 @@ HRESULT CalDAV::HrListCalendar(WEBDAVREQSTPROPS *sDavProp, WEBDAVMULTISTATUS *lp
 	lpPropTagArr->aulPropTag[1] = ulPropTagFldId;
 	unsigned int i = 2;
 	for (const auto &iter : lpsDavProp->lstProps)
-		lpPropTagArr->aulPropTag[i++] = GetPropIDForXMLProp(m_lpUsrFld, iter.sPropName, m_converter);
+		lpPropTagArr->aulPropTag[i++] = GetPropIDForXMLProp(m_lpUsrFld, iter.sPropName);
 
 	if (m_ulFolderFlag & SINGLE_FOLDER)
 	{
@@ -1303,7 +1302,7 @@ HRESULT CalDAV::HrHandlePropPatch(WEBDAVPROP *lpsDavProp, WEBDAVMULTISTATUS *lps
 			continue;
 		}
 
-		sProp.ulPropTag = GetPropIDForXMLProp(m_lpUsrFld, iter.sPropName, m_converter, MAPI_CREATE);
+		sProp.ulPropTag = GetPropIDForXMLProp(m_lpUsrFld, iter.sPropName, MAPI_CREATE);
 		if (sProp.ulPropTag == PR_NULL) {
 			sPropStatusForbidden.sProp.lstProps.emplace_back(std::move(sDavProp));
 			continue;
@@ -1595,7 +1594,7 @@ HRESULT CalDAV::HrMapValtoStruct(LPMAPIPROP lpObj, LPSPropValue lpProps, ULONG u
 		sWebProperty.lstValues.clear();
 		sWebProperty = iterprop;
 		const std::string &strProperty = sWebProperty.sPropName.strPropname;
-		lpFoundProp = PCpropFindProp(lpProps, ulPropCount, GetPropIDForXMLProp(lpObj, sWebProperty.sPropName, m_converter));
+		lpFoundProp = PCpropFindProp(lpProps, ulPropCount, GetPropIDForXMLProp(lpObj, sWebProperty.sPropName));
 		if (strProperty == "resourcetype") {
 			// do not set resourcetype for REPORT request(ical data)
 			if(!lpMtIcal){

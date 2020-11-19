@@ -14,6 +14,7 @@
 #include <kopano/MAPIErrors.h>
 #include <kopano/ECConfig.h>
 #include <kopano/ECLogger.h>
+#include <kopano/charset/convert.h>
 
 using namespace KC;
 
