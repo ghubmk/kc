@@ -458,11 +458,6 @@ private:
 	}
 
 	/**
-	 * @brief Map containing contexts that can be reused.
-	 */
-	typedef std::map<context_key, iconv_context_base *> context_map;
-
-	/**
 	 * @brief Obtains an iconv_context object.
 	 *
 	 * The correct iconv_context is based on To_Type and From_Type and is
@@ -476,7 +471,7 @@ private:
 	KC_HIDDEN iconv_context<To_Type, From_Type> *get_context()
 	{
 		context_key key(create_key<To_Type, From_Type>(NULL, NULL));
-		context_map::const_iterator iContext = m_contexts.find(key);
+		auto iContext = m_contexts.find(key);
 		if (iContext == m_contexts.cend()) {
 			auto lpContext = new iconv_context<To_Type, From_Type>();
 			iContext = m_contexts.emplace(key, lpContext).first;
@@ -499,7 +494,7 @@ private:
 	get_context(const char *fromcode)
 	{
 		context_key key(create_key<To_Type, From_Type>(NULL, fromcode));
-		context_map::const_iterator iContext = m_contexts.find(key);
+		auto iContext = m_contexts.find(key);
 		if (iContext == m_contexts.cend()) {
 			auto lpContext = new iconv_context<To_Type, From_Type>(fromcode);
 			iContext = m_contexts.emplace(key, lpContext).first;
@@ -522,7 +517,7 @@ private:
 	get_context(const char *tocode, const char *fromcode)
 	{
 		context_key key(create_key<To_Type, From_Type>(tocode, fromcode));
-		context_map::const_iterator iContext = m_contexts.find(key);
+		auto iContext = m_contexts.find(key);
 		if (iContext == m_contexts.cend()) {
 			auto lpContext = new iconv_context<To_Type, From_Type>(tocode, fromcode);
 			iContext = m_contexts.emplace(key, lpContext).first;
@@ -560,7 +555,7 @@ private:
 	 */
 	wchar_t *persist_string(const std::wstring &wstrValue);
 
-	context_map	m_contexts;
+	std::map<context_key, iconv_context_base *> m_contexts;
 	std::list<std::string>	m_lstStrings;
 	std::list<std::wstring>	m_lstWstrings;
 
