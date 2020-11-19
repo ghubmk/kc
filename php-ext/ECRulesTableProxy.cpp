@@ -231,37 +231,40 @@ static HRESULT ConvertUnicodeToString8(SRestriction *lpRestriction,
 				return hr;
 		}
 		for (unsigned int i = 0; i < lpRestriction->res.resComment.cValues; ++i) {
-			if (PROP_TYPE(lpRestriction->res.resComment.lpProp[i].ulPropTag) != PT_UNICODE)
+			auto &prop = lpRestriction->res.resComment.lpProp[i];
+			if (PROP_TYPE(prop.ulPropTag) != PT_UNICODE)
 				continue;
-			auto hr = ConvertUnicodeToString8(lpRestriction->res.resComment.lpProp[i].Value.lpszW,
-			          &lpRestriction->res.resComment.lpProp[i].Value.lpszA, base);
+			auto hr = ConvertUnicodeToString8(prop.Value.lpszW,
+			          &prop.Value.lpszA, base);
 			if (hr != hrSuccess)
 				return hr;
-			lpRestriction->res.resComment.lpProp[i].ulPropTag = CHANGE_PROP_TYPE(lpRestriction->res.resComment.lpProp[i].ulPropTag, PT_STRING8);
+			prop.ulPropTag = CHANGE_PROP_TYPE(prop.ulPropTag, PT_STRING8);
 		}
 		break;
 	case RES_COMPAREPROPS:
 		break;
 	case RES_CONTENT: {
-		if (PROP_TYPE(lpRestriction->res.resContent.ulPropTag) != PT_UNICODE)
+		auto &ct = lpRestriction->res.resContent;
+		if (PROP_TYPE(ct.ulPropTag) != PT_UNICODE)
 			break;
-		auto hr = ConvertUnicodeToString8(lpRestriction->res.resContent.lpProp->Value.lpszW,
-		          &lpRestriction->res.resContent.lpProp->Value.lpszA, base);
+		auto hr = ConvertUnicodeToString8(ct.lpProp->Value.lpszW,
+		          &ct.lpProp->Value.lpszA, base);
 		if (hr != hrSuccess)
 			return hr;
-		lpRestriction->res.resContent.lpProp->ulPropTag = CHANGE_PROP_TYPE(lpRestriction->res.resContent.lpProp->ulPropTag, PT_STRING8);
-		lpRestriction->res.resContent.ulPropTag = CHANGE_PROP_TYPE(lpRestriction->res.resContent.ulPropTag, PT_STRING8);
+		ct.lpProp->ulPropTag = CHANGE_PROP_TYPE(ct.lpProp->ulPropTag, PT_STRING8);
+		ct.ulPropTag = CHANGE_PROP_TYPE(ct.ulPropTag, PT_STRING8);
 		break;
 	}
 	case RES_PROPERTY: {
-		if (PROP_TYPE(lpRestriction->res.resProperty.ulPropTag) != PT_UNICODE)
+		auto &prop = lpRestriction->res.resProperty;
+		if (PROP_TYPE(prop.ulPropTag) != PT_UNICODE)
 			break;
-		auto hr = ConvertUnicodeToString8(lpRestriction->res.resProperty.lpProp->Value.lpszW,
-		          &lpRestriction->res.resProperty.lpProp->Value.lpszA, base);
+		auto hr = ConvertUnicodeToString8(prop.lpProp->Value.lpszW,
+		          &prop.lpProp->Value.lpszA, base);
 		if (hr != hrSuccess)
 			return hr;
-		lpRestriction->res.resProperty.lpProp->ulPropTag = CHANGE_PROP_TYPE(lpRestriction->res.resProperty.lpProp->ulPropTag, PT_STRING8);
-		lpRestriction->res.resProperty.ulPropTag = CHANGE_PROP_TYPE(lpRestriction->res.resProperty.ulPropTag, PT_STRING8);
+		prop.lpProp->ulPropTag = CHANGE_PROP_TYPE(prop.lpProp->ulPropTag, PT_STRING8);
+		prop.ulPropTag = CHANGE_PROP_TYPE(prop.ulPropTag, PT_STRING8);
 		break;
 	}
 	case RES_SUBRESTRICTION: {

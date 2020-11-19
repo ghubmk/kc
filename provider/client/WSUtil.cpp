@@ -975,14 +975,15 @@ HRESULT CopySOAPRowSetToMAPIRowSet(void *lpProvider,
 	// some serverside values through TableRowGetProps
 
 	for (lpRowSet->cRows = 0; lpRowSet->cRows < ulRows; ++lpRowSet->cRows) {
-		auto i = lpRowSet->cRows;
-		lpRowSet->aRow[i].ulAdrEntryPad = 0;
-		lpRowSet->aRow[i].cValues = lpsRowSetSrc->__ptr[i].__size;
-		hr = MAPIAllocateBuffer(sizeof(SPropValue) * lpsRowSetSrc->__ptr[i].__size, reinterpret_cast<void **>(&lpRowSet->aRow[i].lpProps));
+		auto &dr = lpRowSet->aRow[lpRowSet->cRows];
+		auto &sr = lpsRowSetSrc->__ptr[lpRowSet->cRows];
+		dr.ulAdrEntryPad = 0;
+		dr.cValues = sr.__size;
+		hr = MAPIAllocateBuffer(sizeof(SPropValue) * sr.__size, reinterpret_cast<void **>(&dr.lpProps));
 		if (hr != hrSuccess)
 			return hr;
-		CopySOAPRowToMAPIRow(lpProvider, &lpsRowSetSrc->__ptr[i], lpRowSet->aRow[i].lpProps,
-			reinterpret_cast<void **>(lpRowSet->aRow[i].lpProps), ulType);
+		CopySOAPRowToMAPIRow(lpProvider, &sr, dr.lpProps,
+			reinterpret_cast<void **>(dr.lpProps), ulType);
 	}
 
 	*lppRowSetDst = lpRowSet.release();
@@ -2087,37 +2088,40 @@ static HRESULT ConvertString8ToUnicode(SRestriction *lpRestriction, void *base)
 				return hr;
 		}
 		for (unsigned int i = 0; i < lpRestriction->res.resComment.cValues; ++i) {
-			if (PROP_TYPE(lpRestriction->res.resComment.lpProp[i].ulPropTag) != PT_STRING8)
+			auto &prop = lpRestriction->res.resComment.lpProp[i];
+			if (PROP_TYPE(prop.ulPropTag) != PT_STRING8)
 				continue;
-			auto hr = ConvertString8ToUnicode(lpRestriction->res.resComment.lpProp[i].Value.lpszA,
-			          &lpRestriction->res.resComment.lpProp[i].Value.lpszW, base);
+			auto hr = ConvertString8ToUnicode(prop.Value.lpszA,
+			          &prop.Value.lpszW, base);
 			if (hr != hrSuccess)
 				return hr;
-			lpRestriction->res.resComment.lpProp[i].ulPropTag = CHANGE_PROP_TYPE(lpRestriction->res.resComment.lpProp[i].ulPropTag, PT_UNICODE);
+			prop.ulPropTag = CHANGE_PROP_TYPE(prop.ulPropTag, PT_UNICODE);
 		}
 		break;
 	case RES_COMPAREPROPS:
 		break;
 	case RES_CONTENT: {
-		if (PROP_TYPE(lpRestriction->res.resContent.ulPropTag) != PT_STRING8)
+		auto &ct = lpRestriction->res.resContent;
+		if (PROP_TYPE(ct.ulPropTag) != PT_STRING8)
 			break;
-		auto hr = ConvertString8ToUnicode(lpRestriction->res.resContent.lpProp->Value.lpszA,
-		          &lpRestriction->res.resContent.lpProp->Value.lpszW, base);
+		auto hr = ConvertString8ToUnicode(ct.lpProp->Value.lpszA,
+		          &ct.lpProp->Value.lpszW, base);
 		if (hr != hrSuccess)
 			return hr;
-		lpRestriction->res.resContent.lpProp->ulPropTag = CHANGE_PROP_TYPE(lpRestriction->res.resContent.lpProp->ulPropTag, PT_UNICODE);
-		lpRestriction->res.resContent.ulPropTag = CHANGE_PROP_TYPE(lpRestriction->res.resContent.ulPropTag, PT_UNICODE);
+		ct.lpProp->ulPropTag = CHANGE_PROP_TYPE(ct.lpProp->ulPropTag, PT_UNICODE);
+		ct.ulPropTag = CHANGE_PROP_TYPE(ct.ulPropTag, PT_UNICODE);
 		break;
 	}
 	case RES_PROPERTY: {
-		if (PROP_TYPE(lpRestriction->res.resProperty.ulPropTag) != PT_STRING8)
+		auto &prop = lpRestriction->res.resProperty;
+		if (PROP_TYPE(prop.ulPropTag) != PT_STRING8)
 			break;
-		auto hr = ConvertString8ToUnicode(lpRestriction->res.resProperty.lpProp->Value.lpszA,
-		          &lpRestriction->res.resProperty.lpProp->Value.lpszW, base);
+		auto hr = ConvertString8ToUnicode(prop.lpProp->Value.lpszA,
+		          &prop.lpProp->Value.lpszW, base);
 		if (hr != hrSuccess)
 			return hr;
-		lpRestriction->res.resProperty.lpProp->ulPropTag = CHANGE_PROP_TYPE(lpRestriction->res.resProperty.lpProp->ulPropTag, PT_UNICODE);
-		lpRestriction->res.resProperty.ulPropTag = CHANGE_PROP_TYPE(lpRestriction->res.resProperty.ulPropTag, PT_UNICODE);
+		prop.lpProp->ulPropTag = CHANGE_PROP_TYPE(prop.lpProp->ulPropTag, PT_UNICODE);
+		prop.ulPropTag = CHANGE_PROP_TYPE(prop.ulPropTag, PT_UNICODE);
 		break;
 	}
 	case RES_SUBRESTRICTION: {
