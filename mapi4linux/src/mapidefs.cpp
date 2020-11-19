@@ -55,7 +55,6 @@ HRESULT M4LMAPIProp::GetProps(const SPropTagArray *lpPropTagArray,
 	ULONG c;
 	memory_ptr<SPropValue> props;
 	SPropValue sConvert;
-	convert_context converter;
 	std::wstring unicode;
 	std::string ansi;
 	LPSPropValue lpCopy = NULL;
@@ -70,12 +69,12 @@ HRESULT M4LMAPIProp::GetProps(const SPropTagArray *lpPropTagArray,
 			// perform unicode conversion if required
 			if ((ulFlags & MAPI_UNICODE) && PROP_TYPE((*i)->ulPropTag) == PT_STRING8) {
 				sConvert.ulPropTag = CHANGE_PROP_TYPE((*i)->ulPropTag, PT_UNICODE);
-				unicode = converter.convert_to<std::wstring>((*i)->Value.lpszA);
+				unicode = convert_to<std::wstring>((*i)->Value.lpszA);
 				sConvert.Value.lpszW = const_cast<wchar_t *>(unicode.c_str());
 				lpCopy = &sConvert;
 			} else if ((ulFlags & MAPI_UNICODE) == 0 && PROP_TYPE((*i)->ulPropTag) == PT_UNICODE) {
 				sConvert.ulPropTag = CHANGE_PROP_TYPE((*i)->ulPropTag, PT_STRING8);
-				ansi = converter.convert_to<std::string>((*i)->Value.lpszW);
+				ansi = convert_to<std::string>((*i)->Value.lpszW);
 				sConvert.Value.lpszA = const_cast<char *>(ansi.c_str());
 
 				lpCopy = &sConvert;
@@ -106,7 +105,7 @@ HRESULT M4LMAPIProp::GetProps(const SPropTagArray *lpPropTagArray,
 			{
 				// string8 to unicode
 				sConvert.ulPropTag = CHANGE_PROP_TYPE((*i)->ulPropTag, PT_UNICODE);
-				unicode = converter.convert_to<std::wstring>((*i)->Value.lpszA);
+				unicode = convert_to<std::wstring>((*i)->Value.lpszA);
 				sConvert.Value.lpszW = const_cast<wchar_t *>(unicode.c_str());
 				lpCopy = &sConvert;
 			}
@@ -116,7 +115,7 @@ HRESULT M4LMAPIProp::GetProps(const SPropTagArray *lpPropTagArray,
 			{
 				// unicode to string8
 				sConvert.ulPropTag = CHANGE_PROP_TYPE((*i)->ulPropTag, PT_STRING8);
-				ansi = converter.convert_to<std::string>((*i)->Value.lpszW);
+				ansi = convert_to<std::string>((*i)->Value.lpszW);
 				sConvert.Value.lpszA = const_cast<char *>(ansi.c_str());
 				lpCopy = &sConvert;
 			}
@@ -132,7 +131,7 @@ HRESULT M4LMAPIProp::GetProps(const SPropTagArray *lpPropTagArray,
 				if (hr != hrSuccess)
 					return hr;
 				for (ULONG d = 0; d < (*i)->Value.MVszA.cValues; ++d) {
-					unicode = converter.convert_to<std::wstring>((*i)->Value.MVszA.lppszA[d]);
+					unicode = convert_to<std::wstring>((*i)->Value.MVszA.lppszA[d]);
 					hr = MAPIAllocateMore(unicode.length() * sizeof(wchar_t) + sizeof(wchar_t), props, reinterpret_cast<void **>(&sConvert.Value.MVszW.lppszW[d]));
 					if (hr != hrSuccess)
 						return hr;
@@ -152,7 +151,7 @@ HRESULT M4LMAPIProp::GetProps(const SPropTagArray *lpPropTagArray,
 				if (hr != hrSuccess)
 					return hr;
 				for (ULONG d = 0; d < (*i)->Value.MVszW.cValues; ++d) {
-					ansi = converter.convert_to<std::string>((*i)->Value.MVszW.lppszW[d]);
+					ansi = convert_to<std::string>((*i)->Value.MVszW.lppszW[d]);
 					hr = MAPIAllocateMore(ansi.length() + 1, props, reinterpret_cast<void **>(&sConvert.Value.MVszA.lppszA[d]));
 					if (hr != hrSuccess)
 						return hr;

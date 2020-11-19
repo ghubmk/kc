@@ -160,8 +160,6 @@ HRESULT RecurrenceState::ParseBlob2(const char *lpData, size_t ulLen,
     unsigned int ulFlags, bool &bReadValid, bool &bExtended)
 {
     unsigned int ulReservedBlock1Size, ulReservedBlock2Size;
-	convert_context converter;
-
     BinReader data(lpData, ulLen);
 
     READSHORT(ulReaderVersion);     READSHORT(ulWriterVersion);
@@ -324,7 +322,6 @@ HRESULT RecurrenceState::ParseBlob2(const char *lpData, size_t ulLen,
 HRESULT RecurrenceState::ParseBlob(const char *lpData, size_t ulLen,
     ULONG ulFlags)
 {
-	convert_context converter;
     bool bReadValid = false; // Read is valid if first set of exceptions was read ok
 	bool bExtended = false;	 // false if we need to sync extended data from "normal" data
 

@@ -1751,7 +1751,6 @@ HRESULT Util::HrStreamToString(IStream *sInput, std::wstring &strOutput) {
 static HRESULT HrConvertStreamToWString(IStream *sInput, ULONG ulCodepage, std::wstring *wstrOutput)
 {
 	const char *lpszCharset;
-	convert_context converter;
 	std::string data;
 	auto hr = HrGetCharsetByCP(ulCodepage, &lpszCharset);
 	if (hr != hrSuccess)
@@ -1761,7 +1760,8 @@ static HRESULT HrConvertStreamToWString(IStream *sInput, ULONG ulCodepage, std::
 		return hr;
 
 	try {
-		wstrOutput->assign(converter.convert_to<std::wstring>(CHARSET_WCHAR"//IGNORE", data, rawsize(data), lpszCharset));
+		wstrOutput->assign(convert_to<std::wstring>(CHARSET_WCHAR "//IGNORE",
+		                   data, rawsize(data), lpszCharset));
 	} catch (const std::exception &) {
 		return MAPI_E_INVALID_PARAMETER;
 	}

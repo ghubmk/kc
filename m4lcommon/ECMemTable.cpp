@@ -860,7 +860,6 @@ HRESULT ECMemTableView::QueryRowData(const ECObjectTableList *lpsRowList,
     SRowSet **lppRows)
 {
 	rowset_ptr lpRows;
-	convert_context converter;
 
 	if (lpsRowList == NULL || lppRows == NULL) {
 		assert(false);
@@ -926,7 +925,7 @@ HRESULT ECMemTableView::QueryRowData(const ECObjectTableList *lpsRowList,
 			if (PROP_TYPE(lpsPropTags->aulPropTag[j]) == PT_UNICODE && PROP_TYPE(lpsProp->ulPropTag) == PT_STRING8) {
 				// PT_UNICODE requested, and PT_STRING8 provided. Do conversion.
 				prop.ulPropTag = CHANGE_PROP_TYPE(lpsPropTags->aulPropTag[j], PT_UNICODE);
-				const auto strTmp = converter.convert_to<std::wstring>(lpsProp->Value.lpszA);
+				const auto strTmp = convert_to<std::wstring>(lpsProp->Value.lpszA);
 				hr = KAllocCopy(strTmp.c_str(), (strTmp.size() + 1) * sizeof(std::wstring::value_type), reinterpret_cast<void **>(&prop.Value.lpszW), lpRows[i].lpProps);
 				if (hr != hrSuccess)
 					return hr;
@@ -934,7 +933,7 @@ HRESULT ECMemTableView::QueryRowData(const ECObjectTableList *lpsRowList,
 			} else if (PROP_TYPE(lpsPropTags->aulPropTag[j]) == PT_STRING8 && PROP_TYPE(lpsProp->ulPropTag) == PT_UNICODE) {
 				// PT_STRING8 requested, and PT_UNICODE provided. Do conversion.
 				prop.ulPropTag = CHANGE_PROP_TYPE(lpsPropTags->aulPropTag[j], PT_STRING8);
-				const auto strTmp = converter.convert_to<std::string>(lpsProp->Value.lpszW);
+				const auto strTmp = convert_to<std::string>(lpsProp->Value.lpszW);
 				hr = KAllocCopy(strTmp.c_str(), strTmp.size() + 1, reinterpret_cast<void **>(&prop.Value.lpszA), lpRows[i].lpProps);
 				if (hr != hrSuccess)
 					return hr;

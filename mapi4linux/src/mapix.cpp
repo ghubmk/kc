@@ -349,7 +349,6 @@ HRESULT M4LMsgServiceAdmin::GetMsgServiceTable(ULONG ulFlags, LPMAPITABLE* lppTa
 	KPropbuffer<4> sProps;
 	int n = 0;
 	std::wstring wServiceName, wDisplayName;
-	convert_context converter;
 	SizedSPropTagArray(3, sptaProviderCols) =
 		{3, {PR_SERVICE_UID, PR_SERVICE_NAME_W, PR_DISPLAY_NAME_W}};
 
@@ -365,8 +364,8 @@ HRESULT M4LMsgServiceAdmin::GetMsgServiceTable(ULONG ulFlags, LPMAPITABLE* lppTa
 		sProps[0].Value.bin.lpb = reinterpret_cast<BYTE *>(&serv->muid);
 		sProps[0].Value.bin.cb = sizeof(GUID);
 		if (ulFlags & MAPI_UNICODE) {
-			sProps.set(1, PR_SERVICE_NAME, converter.convert_to<std::wstring>(serv->servicename));
-			sProps.set(2, PR_DISPLAY_NAME, converter.convert_to<std::wstring>(serv->displayname));
+			sProps.set(1, PR_SERVICE_NAME, convert_to<std::wstring>(serv->servicename));
+			sProps.set(2, PR_DISPLAY_NAME, convert_to<std::wstring>(serv->displayname));
 		} else {
 			sProps.set(1, PR_SERVICE_NAME, serv->servicename);
 			sProps.set(2, PR_DISPLAY_NAME, serv->displayname);
