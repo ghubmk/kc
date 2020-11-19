@@ -11,6 +11,7 @@
 #	include <string_view>
 #endif
 #include <vector>
+#include <kopano/charset/convert.h>
 
 namespace KC {
 
@@ -78,7 +79,7 @@ bool ConsoleTable::SetHeader(size_t col, const string_view &entry)
 
 	if (col >= m_iColumns)
 		return false;
-	m_vHeader[col] = m_converter.convert_to<std::wstring>(CHARSET_WCHAR, entry, entry.length(), CHARSET_CHAR);
+	m_vHeader[col] = convert_to<std::wstring>(CHARSET_WCHAR, entry, entry.length(), CHARSET_CHAR);
 	len = entry.length();
 	if (len > m_vMaxLengths[col])
 		m_vMaxLengths[col] = len;
@@ -119,7 +120,7 @@ bool ConsoleTable::SetColumn(size_t row, size_t col, const string_view &entry)
 	if (col >= m_iColumns || row >= m_iRows)
 		return false;
 	// we want to count number of printable characters, which is not possible using UTF-8
-	m_vTable[row][col] = m_converter.convert_to<std::wstring>(CHARSET_WCHAR, entry, entry.length(), CHARSET_CHAR);
+	m_vTable[row][col] = convert_to<std::wstring>(CHARSET_WCHAR, entry, entry.length(), CHARSET_CHAR);
 	auto len = m_vTable[row][col].length();
 	if (len > m_vMaxLengths[col])
 		m_vMaxLengths[col] = len;
