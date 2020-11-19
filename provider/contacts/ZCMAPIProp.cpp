@@ -17,6 +17,7 @@
 #include <kopano/memory.hpp>
 #include <kopano/namedprops.h>
 #include <kopano/mapiguidext.h>
+#include <kopano/charset/convert.h>
 
 using namespace KC;
 
@@ -55,7 +56,6 @@ HRESULT ZCMAPIProp::ConvertMailUser(LPSPropTagArray lpNames, ULONG cValues, LPSP
 	HRESULT hr = hrSuccess;
 	SPropValue sValue, sSource;
 	std::string strSearchKey;
-	convert_context converter;
 
 	auto lpProp = PCpropFindProp(lpProps, cValues, PR_BODY);
 	if (lpProp) {
@@ -126,13 +126,13 @@ HRESULT ZCMAPIProp::ConvertMailUser(LPSPropTagArray lpNames, ULONG cValues, LPSP
 	if (lpNames) {
 		lpProp = PCpropFindProp(lpProps, cValues, CHANGE_PROP_TYPE(lpNames->aulPropTag[1], PT_UNICODE));
 		if (lpProp) {
-			strSearchKey += converter.convert_to<std::string>(lpProp->Value.lpszW) + ":";
+			strSearchKey += convert_to<std::string>(lpProp->Value.lpszW) + ":";
 		} else {
 			strSearchKey += "SMTP:";
 		}
 		lpProp = PCpropFindProp(lpProps, cValues, CHANGE_PROP_TYPE(lpNames->aulPropTag[2], PT_UNICODE));
 		if (lpProp)
-			strSearchKey += converter.convert_to<std::string>(lpProp->Value.lpszW);
+			strSearchKey += convert_to<std::string>(lpProp->Value.lpszW);
 
 		sSource.ulPropTag = PR_SEARCH_KEY;
 		sSource.Value.bin.cb = strSearchKey.size();
@@ -299,7 +299,7 @@ HRESULT ZCMAPIProp::QueryInterface(REFIID refiid, void **lppInterface)
 	return MAPI_E_INTERFACE_NOT_SUPPORTED;
 }
 
-HRESULT ZCMAPIProp::CopyOneProp(convert_context &converter, ULONG ulFlags,
+HRESULT ZCMAPIProp::CopyOneProp(unsigned int ulFlags,
     const std::map<short, SPropValue>::const_iterator &i, LPSPropValue lpProp,
     LPSPropValue lpBase)
 {
@@ -307,7 +307,7 @@ HRESULT ZCMAPIProp::CopyOneProp(convert_context &converter, ULONG ulFlags,
 		return Util::HrCopyProperty(lpProp, &i->second, lpBase);
 	// copy from unicode to string8
 	lpProp->ulPropTag = CHANGE_PROP_TYPE(i->second.ulPropTag, PT_STRING8);
-	auto strAnsi = converter.convert_to<std::string>(i->second.Value.lpszW);
+	auto strAnsi = convert_to<std::string>(i->second.Value.lpszW);
 	auto hr = MAPIAllocateMore(strAnsi.size() + 1, lpBase,
 	          reinterpret_cast<void **>(&lpProp->Value.lpszA));
 	if (hr != hrSuccess)
@@ -330,7 +330,6 @@ HRESULT ZCMAPIProp::GetProps(const SPropTagArray *lpPropTagArray, ULONG ulFlags,
     ULONG *lpcValues, SPropValue **lppPropArray)
 {
 	memory_ptr<SPropValue> lpProps;
-	convert_context converter;
 
 	if ((lpPropTagArray != nullptr && lpPropTagArray->cValues == 0) ||
 	    !Util::ValidatePropTagArray(lpPropTagArray))
@@ -345,7 +344,7 @@ HRESULT ZCMAPIProp::GetProps(const SPropTagArray *lpPropTagArray, ULONG ulFlags,
 		ULONG j = 0;
 		for (auto i = m_mapProperties.cbegin();
 		     i != m_mapProperties.cend(); ++i) {
-			hr = CopyOneProp(converter, ulFlags, i, &lpProps[j], lpProps);
+			hr = CopyOneProp(ulFlags, i, &lpProps[j], lpProps);
 			if (hr != hrSuccess)
 				return hr;
 			++j;
@@ -366,7 +365,7 @@ HRESULT ZCMAPIProp::GetProps(const SPropTagArray *lpPropTagArray, ULONG ulFlags,
 				continue;
 			}
 
-			hr = CopyOneProp(converter, ulFlags, i, &lpProps[j], lpProps);
+			hr = CopyOneProp(ulFlags, i, &lpProps[j], lpProps);
 			if (hr != hrSuccess)
 				return hr;
 		}

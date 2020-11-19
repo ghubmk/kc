@@ -582,7 +582,6 @@ HRESULT ZCABContainer::GetHierarchyTable(ULONG ulFlags, LPMAPITABLE *lppTable)
 	SizedSPropTagArray(9, sptaCols) = {9, {PR_ENTRYID, PR_STORE_ENTRYID, PR_DISPLAY_NAME_W, PR_OBJECT_TYPE, PR_CONTAINER_FLAGS, PR_DISPLAY_TYPE, PR_AB_PROVIDER_ID, PR_DEPTH, PR_INSTANCE_KEY}};
 	enum { XENTRYID = 0, STORE_ENTRYID, DISPLAY_NAME, OBJECT_TYPE, CONTAINER_FLAGS, DISPLAY_TYPE, AB_PROVIDER_ID, DEPTH, INSTANCE_KEY, ROWID, XTCOLS };
 	ULONG ulInstance = 0;
-	convert_context converter;
 
 	if ((ulFlags & MAPI_UNICODE) == 0)
 		sptaCols.aulPropTag[DISPLAY_NAME] = PR_DISPLAY_NAME_A;
@@ -623,7 +622,7 @@ HRESULT ZCABContainer::GetHierarchyTable(ULONG ulFlags, LPMAPITABLE *lppTable)
 			sProps[STORE_ENTRYID].Value.err = MAPI_E_NOT_FOUND;
 
 			if ((ulFlags & MAPI_UNICODE) == 0)
-				sProps.set(DISPLAY_NAME, PR_DISPLAY_NAME, converter.convert_to<std::string>(folder.strwDisplayName));
+				sProps.set(DISPLAY_NAME, PR_DISPLAY_NAME, convert_to<std::string>(folder.strwDisplayName));
 			else
 				sProps.set(DISPLAY_NAME, sptaCols.aulPropTag[DISPLAY_NAME], folder.strwDisplayName);
 
