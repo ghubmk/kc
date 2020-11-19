@@ -1408,7 +1408,6 @@ HRESULT PropValueArraytoPHPArray(ULONG cValues,
 	zval zval_alist_value;	// adrlist in action convert
 	const SPropValue *pPropValue;
 	char ulKey[16];
-	convert_context converter;
 
 	MAPI_G(hr) = hrSuccess;
 	my_array_init(zval_prop_value);
@@ -1460,7 +1459,7 @@ HRESULT PropValueArraytoPHPArray(ULONG cValues,
 			break;
 
 		case PT_UNICODE:
-			add_assoc_string(zval_prop_value, pulproptag, BEFORE_PHP7_2(converter.convert_to<std::string>(pPropValue->Value.lpszW).c_str()));
+			add_assoc_string(zval_prop_value, pulproptag, BEFORE_PHP7_2(convert_to<std::string>(pPropValue->Value.lpszW).c_str()));
 			break;
 
 		case PT_BINARY:
@@ -1565,7 +1564,7 @@ HRESULT PropValueArraytoPHPArray(ULONG cValues,
 			my_array_init(&zval_mvprop_value);
 			for (unsigned int j = 0; j < pPropValue->Value.MVszW.cValues; ++j) {
 				sprintf(ulKey, "%i", j);
-				add_assoc_string(&zval_mvprop_value, ulKey, BEFORE_PHP7_2(converter.convert_to<std::string>(pPropValue->Value.MVszW.lppszW[j]).c_str()));
+				add_assoc_string(&zval_mvprop_value, ulKey, BEFORE_PHP7_2(convert_to<std::string>(pPropValue->Value.MVszW.lppszW[j]).c_str()));
 			}
 
 			add_assoc_zval(zval_prop_value, pulproptag, &zval_mvprop_value);
