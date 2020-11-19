@@ -11,21 +11,17 @@
 #include "ECMsgStore.h"
 #include "WSMAPIFolderOps.h"
 
-namespace KC {
-class convert_context;
-}
-
 class KCmdProxy2;
 
-extern HRESULT CopyMAPIPropValToSOAPPropVal(propVal *dst, const SPropValue *src, KC::convert_context * = nullptr);
-extern HRESULT CopySOAPPropValToMAPIPropVal(SPropValue *dst, const struct propVal *src, void *base, KC::convert_context * = nullptr);
-extern HRESULT CopySOAPRowToMAPIRow(void *prov, const struct propValArray *src, SPropValue *dst, void **base, ULONG type, KC::convert_context * = nullptr);
+extern HRESULT CopyMAPIPropValToSOAPPropVal(propVal *dst, const SPropValue *src);
+extern HRESULT CopySOAPPropValToMAPIPropVal(SPropValue *dst, const struct propVal *src, void *base);
+extern HRESULT CopySOAPRowToMAPIRow(void *prov, const struct propValArray *src, SPropValue *dst, void **base, unsigned int type);
 HRESULT CopySOAPRowSetToMAPIRowSet(void *lpProvider, const struct rowSet *lpsRowSetSrc, LPSRowSet *lppRowSetDst, ULONG ulType);
-extern HRESULT CopySOAPRestrictionToMAPIRestriction(SRestriction *dst, const struct restrictTable *src, void *base, KC::convert_context * = nullptr);
-extern HRESULT CopyMAPIRestrictionToSOAPRestriction(struct restrictTable **dst, const SRestriction *src, KC::convert_context * = nullptr);
-extern HRESULT CopyMAPIRowSetToSOAPRowSet(const SRowSet *src, struct rowSet **dst, KC::convert_context * = nullptr);
-extern HRESULT CopyMAPIRowToSOAPRow(const SRow *src, struct propValArray *dst, KC::convert_context * = nullptr);
-extern HRESULT CopySOAPRowToMAPIRow(const struct propValArray *src, SPropValue *dst, void *base, KC::convert_context * = nullptr);
+extern HRESULT CopySOAPRestrictionToMAPIRestriction(SRestriction *dst, const struct restrictTable *src, void *base);
+extern HRESULT CopyMAPIRestrictionToSOAPRestriction(struct restrictTable **dst, const SRestriction *src);
+extern HRESULT CopyMAPIRowSetToSOAPRowSet(const SRowSet *src, struct rowSet **dst);
+extern HRESULT CopyMAPIRowToSOAPRow(const SRow *src, struct propValArray *dst);
+extern HRESULT CopySOAPRowToMAPIRow(const struct propValArray *src, SPropValue *dst, void *base);
 HRESULT CopyMAPIEntryIdToSOAPEntryId(ULONG cbEntryIdSrc, const ENTRYID *lpEntryIdSrc, entryId **lppDest);
 HRESULT CopyMAPIEntryIdToSOAPEntryId(ULONG cbEntryIdSrc, const ENTRYID *lpEntryIdSrc, entryId *lpDest, bool bCheapCopy = false);
 HRESULT CopySOAPEntryIdToMAPIEntryId(const entryId *lpSrc, ULONG *lpcbDest, LPENTRYID *lppEntryIdDest, void *lpBase = NULL);
@@ -44,11 +40,11 @@ extern HRESULT SoapServerListToServerList(const struct serverList *, ULONG flags
 extern HRESULT WrapServerClientStoreEntry(const char *server_name, const entryId *store_id, ULONG *sid_size, ENTRYID **sid);
 extern HRESULT UnWrapServerClientStoreEntry(ULONG sid_size, const ENTRYID *sid, ULONG *unwrap_sid_size, ENTRYID **unwrap_sid);
 extern HRESULT UnWrapServerClientABEntry(ULONG abid_size, const ENTRYID *abid, ULONG *unwrap_abid_size, ENTRYID **unwrap_abid);
-extern HRESULT CopySOAPNotificationToMAPINotification(void *prov, const struct notification *src, NOTIFICATION **dst, KC::convert_context * = nullptr);
+extern HRESULT CopySOAPNotificationToMAPINotification(void *prov, const struct notification *src, NOTIFICATION **dst);
 extern HRESULT CopySOAPChangeNotificationToSyncState(const struct notification *src, SBinary **dst, void *base);
 extern HRESULT CopyICSChangeToSOAPSourceKeys(ULONG cbChanges, const ICSCHANGE *lpsChanges, sourceKeyPairArray **lppsSKPA);
-extern HRESULT Utf8ToTString(const char *utf, ULONG flags, void *bsae, KC::convert_context *, TCHAR **);
+extern HRESULT Utf8ToTString(const char *utf, unsigned int flags, void *bsae, TCHAR **);
 HRESULT ConvertString8ToUnicode(LPSRowSet lpRowSet);
-extern HRESULT ConvertString8ToUnicode(SRow *row, void *base, KC::convert_context &);
+extern HRESULT ConvertString8ToUnicode(SRow *row, void *base);
 extern HRESULT convert_wsfolder_to_soapfolder(const std::vector<WSMAPIFolderOps::WSFolder> &src, std::vector<new_folder> &dst);
 extern HRESULT convert_soapfolders_to_wsfolder(const struct create_folders_response &src, std::vector<WSMAPIFolderOps::WSFolder> &dst);
