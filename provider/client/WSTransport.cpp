@@ -2984,26 +2984,22 @@ HRESULT WSTransport::HrResolveNames(const SPropTagArray *lpPropTagArray,
 	assert(sResponse.aFlags.__size == lpFlagList->cFlags);
 	assert(static_cast<ULONG>(sResponse.sRowSet.__size) == lpAdrList->cEntries);
 	for (gsoap_size_t i = 0; i < sResponse.aFlags.__size; ++i) {
-		// Set the resolved items
-		if(lpFlagList->ulFlag[i] == MAPI_UNRESOLVED && sResponse.aFlags.__ptr[i] == MAPI_RESOLVED)
-		{
-			lpAdrList->aEntries[i].cValues = sResponse.sRowSet.__ptr[i].__size;
-			MAPIFreeBuffer(lpAdrList->aEntries[i].rgPropVals);
-
-			hr = MAPIAllocateBuffer(sizeof(SPropValue) * lpAdrList->aEntries[i].cValues,
-			     reinterpret_cast<void **>(&lpAdrList->aEntries[i].rgPropVals));
-			if (hr != hrSuccess)
-				return hr;
-			hr = CopySOAPRowToMAPIRow(&sResponse.sRowSet.__ptr[i],
-			     lpAdrList->aEntries[i].rgPropVals, lpAdrList->aEntries[i].rgPropVals);
-			if(hr != hrSuccess)
-				return hr;
-
+		if (lpFlagList->ulFlag[i] != MAPI_UNRESOLVED ||
+		    sResponse.aFlags.__ptr[i] != MAPI_RESOLVED) {
 			lpFlagList->ulFlag[i] = sResponse.aFlags.__ptr[i];
-		}else { // MAPI_AMBIGUOUS or MAPI_UNRESOLVED
-			// only set the flag, do nothing with the row
-			lpFlagList->ulFlag[i] = sResponse.aFlags.__ptr[i];
+			continue;
 		}
+		lpAdrList->aEntries[i].cValues = sResponse.sRowSet.__ptr[i].__size;
+		MAPIFreeBuffer(lpAdrList->aEntries[i].rgPropVals);
+		hr = MAPIAllocateBuffer(sizeof(SPropValue) * lpAdrList->aEntries[i].cValues,
+		     reinterpret_cast<void **>(&lpAdrList->aEntries[i].rgPropVals));
+		if (hr != hrSuccess)
+			return hr;
+		hr = CopySOAPRowToMAPIRow(&sResponse.sRowSet.__ptr[i],
+		     lpAdrList->aEntries[i].rgPropVals, lpAdrList->aEntries[i].rgPropVals);
+		if (hr != hrSuccess)
+			return hr;
+		lpFlagList->ulFlag[i] = sResponse.aFlags.__ptr[i];
 	}
 	return hrSuccess;
 }
