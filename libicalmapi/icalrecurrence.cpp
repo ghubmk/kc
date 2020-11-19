@@ -17,6 +17,7 @@
 #include <mapiutil.h>
 #include <cmath>
 #include <algorithm>
+#include <kopano/charset/convert.h>
 #include "freebusy.h"
 #include "icalcompat.hpp"
 
@@ -290,7 +291,6 @@ HRESULT ICalRecurrence::HrMakeMAPIException(icalcomponent *lpEventRoot,
 	LONG ulRemindBefore = 0;
 	time_t ttReminderTime = 0;
 	bool bReminderSet = false;
-	convert_context converter;
 	bool abOldPresent[8] = {false}, abNewPresent[8] = {false};
 	const SizedSPropTagArray(8, sptaCopy) = {8, {
 			PR_SUBJECT,
@@ -418,7 +418,8 @@ HRESULT ICalRecurrence::HrMakeMAPIException(icalcomponent *lpEventRoot,
 			auto lpszProp = icalproperty_get_summary(lpicProp);
 			if (lpszProp == nullptr)
 				continue;
-			auto strIcalProp = converter.convert_to<std::wstring>(lpszProp, rawsize(lpszProp), strCharset.c_str());
+			auto strIcalProp = convert_to<std::wstring>(lpszProp,
+			                   rawsize(lpszProp), strCharset.c_str());
 			auto hr = lpIcalItem->lpRecurrence->setModifiedSubject(ulId, strIcalProp.c_str());
 			if (hr != hrSuccess)
 				return hr;
@@ -432,7 +433,8 @@ HRESULT ICalRecurrence::HrMakeMAPIException(icalcomponent *lpEventRoot,
 			auto lpszProp = icalproperty_get_location(lpicProp);
 			if (lpszProp == nullptr)
 				continue;
-			auto strIcalProp = converter.convert_to<std::wstring>(lpszProp, rawsize(lpszProp), strCharset.c_str());
+			auto strIcalProp = convert_to<std::wstring>(lpszProp,
+			                   rawsize(lpszProp), strCharset.c_str());
 			auto hr = lpIcalItem->lpRecurrence->setModifiedLocation(ulId, strIcalProp.c_str());
 			if (hr != hrSuccess)
 				return hr;
@@ -493,7 +495,8 @@ HRESULT ICalRecurrence::HrMakeMAPIException(icalcomponent *lpEventRoot,
 			auto lpszProp = icalproperty_get_description(lpicProp);
 			if (lpszProp == nullptr)
 				continue;
-			auto strIcalProp = converter.convert_to<std::wstring>(lpszProp, rawsize(lpszProp), strCharset.c_str());
+			auto strIcalProp = convert_to<std::wstring>(lpszProp,
+			                   rawsize(lpszProp), strCharset.c_str());
 			auto hr = lpIcalItem->lpRecurrence->setModifiedBody(ulId);
 			if (hr != hrSuccess)
 				return hr;

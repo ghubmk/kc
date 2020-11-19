@@ -13,6 +13,7 @@
 #include "nameids.h"
 #include "icaluid.h"
 #include <kopano/stringutil.h>
+#include <kopano/charset/convert.h>
 #include "icalmem.hpp"
 
 namespace KC {
@@ -78,7 +79,7 @@ HRESULT VEventConverter::HrAddBaseProperties(icalproperty_method icMethod, icalc
 	auto icProp = icalcomponent_get_first_property(lpicEvent, ICAL_ORGANIZER_PROPERTY);
 	auto lpszProp = icProp != nullptr ? icalproperty_get_organizer(icProp) : nullptr;
 	if (lpszProp != nullptr) {
-		strEmail = m_converter.convert_to<std::wstring>(lpszProp, rawsize(lpszProp), m_strCharset.c_str());
+		strEmail = convert_to<std::wstring>(lpszProp, rawsize(lpszProp), m_strCharset.c_str());
 		if (wcsncasecmp(strEmail.c_str(), L"mailto:", 7) == 0)
 			strEmail.erase(0, 7);
 		if (bIsUserLoggedIn(strEmail))
