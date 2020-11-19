@@ -531,7 +531,6 @@ HRESULT ECQuotaMonitor::CreateMessageProperties(ECUSER *lpecToUser,
 	memory_ptr<unsigned char> lpFromSearchKey, lpToSearchKey;
 	FILETIME ft;
 	std::wstring name, email;
-	convert_context converter;
 
 	/* We are almost there, we have the mail and the recipients. Now we should create the Message */
 	auto hr = MAPIAllocateBuffer(sizeof(SPropValue) * ulPropArrayMax, &~lpPropArray);

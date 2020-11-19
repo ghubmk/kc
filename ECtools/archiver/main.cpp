@@ -189,7 +189,6 @@ int main(int argc, char **argv)
 	bool bLocalOnly = false, bAutoAttach = false, bForceCleanup = false;
 	unsigned int ulArchive = 0, ulAttachFlags = 0, ulFlags = 0;
 	std::unique_ptr<Archiver> ptrArchiver;
-    convert_context converter;
 
     const char *lpszConfig = Archiver::GetConfigPath();
 
@@ -207,7 +206,7 @@ int main(int argc, char **argv)
         switch (c) {
         case 'u':
         case OPT_USER:
-            strUser = converter.convert_to<tstring>(optarg);
+			strUser = convert_to<tstring>(optarg);
             break;
 
         case 'a':
@@ -436,8 +435,8 @@ int main(int argc, char **argv)
             return 1;
 
 		filelogger->logf(EC_LOGLEVEL_DEBUG, "Archiver action: Attach archive \"%s\" in server \"%s\" using folder \"%s\"", lpszArchive, lpszArchiveServer, lpszFolder);
-		r = ptr->AttachTo(lpszArchiveServer, converter.convert_to<tstring>(lpszArchive).c_str(),
-		    converter.convert_to<tstring>(lpszFolder).c_str(), ulAttachFlags);
+		r = ptr->AttachTo(lpszArchiveServer, convert_to<tstring>(lpszArchive).c_str(),
+		    convert_to<tstring>(lpszFolder).c_str(), ulAttachFlags);
 		filelogger->logf(EC_LOGLEVEL_DEBUG, "Archiver result %d (%s)", r, ArchiveResultString(r));
     }
     break;
@@ -455,8 +454,8 @@ int main(int argc, char **argv)
 			filelogger->logf(EC_LOGLEVEL_DEBUG, "Archiver result %d (%s)", r, ArchiveResultString(r));
         } else {
 			filelogger->logf(EC_LOGLEVEL_DEBUG, "Archiver action: Detach archive \"%s\" on server \"%s\", folder \"%s\"", lpszArchive, lpszArchiveServer, lpszFolder);
-			r = ptr->DetachFrom(lpszArchiveServer, converter.convert_to<tstring>(lpszArchive).c_str(),
-			    converter.convert_to<tstring>(lpszFolder).c_str());
+			r = ptr->DetachFrom(lpszArchiveServer, convert_to<tstring>(lpszArchive).c_str(),
+			    convert_to<tstring>(lpszFolder).c_str());
 			filelogger->logf(EC_LOGLEVEL_DEBUG, "Archiver result %d (%s)", r, ArchiveResultString(r));
         }
     }
