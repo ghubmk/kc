@@ -963,7 +963,6 @@ HRESULT CopySOAPRowSetToMAPIRowSet(void *lpProvider,
 {
 	ULONG ulRows = 0;
 	rowset_ptr lpRowSet;
-	convert_context converter;
 
 	ulRows = lpsRowSetSrc->__size;
 

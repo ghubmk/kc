@@ -254,7 +254,6 @@ HRESULT ECMSProviderSwitch::Logon(IMAPISupport *lpMAPISup, ULONG_PTR ulUIParam,
 	object_ptr<IMSLogon> lpMSLogon;
 	PROVIDER_INFO sProviderInfo;
 	object_ptr<IMSProvider> lpOnline;
-	convert_context converter;
 	memory_ptr<ENTRYID> lpStoreID;
 	auto laters = make_scope_success([&]() {
 		if (lppMAPIError != nullptr)
