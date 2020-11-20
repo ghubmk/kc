@@ -1575,15 +1575,17 @@ HRESULT WSTransport::HrCreateUser(ECUSER *lpECUser, ULONG ulFlags,
 
 	ECRESULT er = erSuccess;
 	struct user sUser;
-	convert_context converter;
-
-	sUser.lpszUsername    = TO_UTF8_DEF(reinterpret_cast<const char *>(lpECUser->lpszUsername));
-	sUser.lpszPassword    = TO_UTF8_DEF(reinterpret_cast<const char *>(lpECUser->lpszPassword));
-	sUser.lpszMailAddress = TO_UTF8_DEF(reinterpret_cast<const char *>(lpECUser->lpszMailAddress));
+	auto u8user = tfstring_to_utf8(lpECUser->lpszUsername, ulFlags);
+	auto u8pass = tfstring_to_utf8(lpECUser->lpszUsername, ulFlags);
+	auto u8mail = tfstring_to_utf8(lpECUser->lpszPassword, ulFlags);
+	auto u8full = tfstring_to_utf8(lpECUser->lpszFullName, ulFlags);
+	sUser.lpszUsername    = const_cast<char *>(u8user.c_str());
+	sUser.lpszPassword    = const_cast<char *>(u8pass.c_str());
+	sUser.lpszMailAddress = const_cast<char *>(u8mail.c_str());
 	sUser.ulUserId			= 0;
 	sUser.ulObjClass		= lpECUser->ulObjClass;
 	sUser.ulIsAdmin			= lpECUser->ulIsAdmin;
-	sUser.lpszFullName    = TO_UTF8_DEF(reinterpret_cast<const char *>(lpECUser->lpszFullName));
+	sUser.lpszFullName    = const_cast<char *>(u8full.c_str());
 	sUser.ulIsABHidden		= lpECUser->ulIsABHidden;
 	sUser.ulCapacity		= lpECUser->ulCapacity;
 	sUser.lpsPropmap		= NULL;
@@ -1671,13 +1673,17 @@ HRESULT WSTransport::HrSetUser(ECUSER *lpECUser, ULONG ulFlags)
 	unsigned int result = 0;
 	convert_context	converter;
 
-	sUser.lpszUsername		= TO_UTF8_DEF(lpECUser->lpszUsername);
-	sUser.lpszPassword		= TO_UTF8_DEF(lpECUser->lpszPassword);
-	sUser.lpszMailAddress	= TO_UTF8_DEF(lpECUser->lpszMailAddress);
+	auto u8user = tfstring_to_utf8(lpECUser->lpszUsername, ulFlags);
+	auto u8pass = tfstring_to_utf8(lpECUser->lpszUsername, ulFlags);
+	auto u8mail = tfstring_to_utf8(lpECUser->lpszPassword, ulFlags);
+	auto u8full = tfstring_to_utf8(lpECUser->lpszFullName, ulFlags);
+	sUser.lpszUsername    = const_cast<char *>(u8user.c_str());
+	sUser.lpszPassword    = const_cast<char *>(u8pass.c_str());
+	sUser.lpszMailAddress = const_cast<char *>(u8mail.c_str());
 	sUser.ulUserId			= ABEID_ID(lpECUser->sUserId.lpb);
 	sUser.ulObjClass		= lpECUser->ulObjClass;
 	sUser.ulIsAdmin			= lpECUser->ulIsAdmin;
-	sUser.lpszFullName		= TO_UTF8_DEF(lpECUser->lpszFullName);
+	sUser.lpszFullName    = const_cast<char *>(u8full.c_str());
 	sUser.sUserId.__ptr		= lpECUser->sUserId.lpb;
 	sUser.sUserId.__size	= lpECUser->sUserId.cb;
 	sUser.ulIsABHidden		= lpECUser->ulIsABHidden;
@@ -1909,12 +1915,13 @@ HRESULT WSTransport::HrCreateGroup(ECGROUP *lpECGroup, ULONG ulFlags,
 
 	ECRESULT er = erSuccess;
 	struct group sGroup;
-	convert_context converter;
-
+	auto u8name = tfstring_to_utf8(lpECGroup->lpszGroupname, ulFlags);
+	auto u8full = tfstring_to_utf8(lpECGroup->lpszFullname, ulFlags);
+	auto u8mail = tfstring_to_utf8(lpECGroup->lpszFullEmail, ulFlags);
 	sGroup.ulGroupId = 0;
-	sGroup.lpszGroupname = TO_UTF8_DEF(lpECGroup->lpszGroupname);
-	sGroup.lpszFullname = TO_UTF8_DEF(lpECGroup->lpszFullname);
-	sGroup.lpszFullEmail = TO_UTF8_DEF(lpECGroup->lpszFullEmail);
+	sGroup.lpszGroupname = const_cast<char *>(u8name.c_str());
+	sGroup.lpszFullname  = const_cast<char *>(u8full.c_str());
+	sGroup.lpszFullEmail = const_cast<char *>(u8mail.c_str());
 	sGroup.ulIsABHidden = lpECGroup->ulIsABHidden;
 	sGroup.lpsPropmap = NULL;
 	sGroup.lpsMVPropmap = NULL;
@@ -1957,9 +1964,12 @@ HRESULT WSTransport::HrSetGroup(ECGROUP *lpECGroup, ULONG ulFlags)
 	convert_context converter;
 	struct group sGroup;
 
-	sGroup.lpszFullname = TO_UTF8_DEF(lpECGroup->lpszFullname);
-	sGroup.lpszGroupname = TO_UTF8_DEF(lpECGroup->lpszGroupname);
-	sGroup.lpszFullEmail = TO_UTF8_DEF(lpECGroup->lpszFullEmail);
+	auto u8name = tfstring_to_utf8(lpECGroup->lpszGroupname, ulFlags);
+	auto u8full = tfstring_to_utf8(lpECGroup->lpszFullname, ulFlags);
+	auto u8mail = tfstring_to_utf8(lpECGroup->lpszFullEmail, ulFlags);
+	sGroup.lpszFullname  = const_cast<char *>(u8full.c_str());
+	sGroup.lpszGroupname = const_cast<char *>(u8name.c_str());
+	sGroup.lpszFullEmail = const_cast<char *>(u8mail.c_str());
 	sGroup.sGroupId.__size = lpECGroup->sGroupId.cb;
 	sGroup.sGroupId.__ptr = lpECGroup->sGroupId.lpb;
 	sGroup.ulGroupId = ABEID_ID(lpECGroup->sGroupId.lpb);
@@ -2393,10 +2403,9 @@ HRESULT WSTransport::HrCreateCompany(ECCOMPANY *lpECCompany, ULONG ulFlags,
 
 	ECRESULT er = erSuccess;
 	struct company sCompany;
-	convert_context	converter;
-
+	auto u8name = tfstring_to_utf8(lpECCompany->lpszCompanyname, ulFlags);
 	sCompany.ulAdministrator = 0;
-	sCompany.lpszCompanyname = TO_UTF8_DEF(lpECCompany->lpszCompanyname);
+	sCompany.lpszCompanyname = const_cast<char *>(u8name.c_str());
 	sCompany.ulIsABHidden = lpECCompany->ulIsABHidden;
 	sCompany.lpsPropmap = NULL;
 	sCompany.lpsMVPropmap = NULL;
@@ -2459,10 +2468,8 @@ HRESULT WSTransport::HrSetCompany(ECCOMPANY *lpECCompany, ULONG ulFlags)
 
 	ECRESULT er = erSuccess;
 	struct company sCompany;
-	convert_context converter;
-
-	sCompany.lpszCompanyname = TO_UTF8_DEF(lpECCompany->lpszCompanyname);
-
+	auto u8name = tfstring_to_utf8(lpECCompany->lpszCompanyname, ulFlags);
+	sCompany.lpszCompanyname = const_cast<char *>(u8name.c_str());
 	sCompany.ulCompanyId = ABEID_ID(lpECCompany->sCompanyId.lpb);
 	sCompany.sCompanyId.__size = lpECCompany->sCompanyId.cb;
 	sCompany.sCompanyId.__ptr = lpECCompany->sCompanyId.lpb;

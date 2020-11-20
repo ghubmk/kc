@@ -1036,7 +1036,8 @@ static HRESULT print_details(LPMAPISESSION lpSession,
 			kc_perror("Unable to request groups for user", hr);
 
 		std::unique_ptr<ArchiveManage> ptrArchiveManage;
-		hr = ArchiveManage::Create(lpSession, NULL, converter.convert_to<LPTSTR>(lpszName), &ptrArchiveManage);
+		hr = ArchiveManage::Create(lpSession, nullptr,
+		     converter.convert_to<tstring>(lpszName).c_str(), &ptrArchiveManage);
 		if (hr != hrSuccess) {
 			if (hr != MAPI_E_NOT_FOUND)
 				kc_perror("Error while obtaining archive details", hr);
