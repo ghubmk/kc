@@ -31,7 +31,7 @@ pipeline {
                     steps {
                         echo 'Building..'
                         sh './bootstrap.sh'
-                        sh './configure --enable-release --enable-pybind --enable-kcoidc --enable-kustomer TCMALLOC_CFLAGS=" " TCMALLOC_LIBS="-ltcmalloc_minimal" PYTHON="$(which python3)" PYTHON_CFLAGS="$(pkg-config python3 --cflags)" PYTHON_LIBS="$(pkg-config python3 --libs)"'
+                        sh './configure --enable-release --enable-pybind --enable-kcoidc --enable-kustomer PYTHON="$(which python3)" PYTHON_CFLAGS="$(pkg-config python3 --cflags)" PYTHON_LIBS="$(pkg-config python3 --libs)"'
                         sh 'make -j $(nproc)'
 			recordIssues(tools: [gcc()])
                     }

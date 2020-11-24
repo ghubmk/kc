@@ -417,10 +417,6 @@ PKG_CHECK_MODULES([ICAL], [libical >= 0.42])
 AH_TEMPLATE([HAVE_CURL_CURL_H], [curl present])
 PKG_CHECK_MODULES([curl], [libcurl >= 7], [AC_DEFINE([HAVE_CURL_CURL_H], [1])], [:])
 PKG_CHECK_MODULES([rrd], [librrd >= 1.3], [], [:])
-PKG_CHECK_MODULES([TCMALLOC], [libtcmalloc_minimal], [], [:])
-CPPFLAGS="$CPPFLAGS $TCMALLOC_CFLAGS"
-AC_CHECK_HEADERS([gperftools/malloc_extension.h google/malloc_extension.h])
-CPPFLAGS="$CPPFLAGS_system"
 PKG_CHECK_MODULES([VMIME], [vmime >= 0.9.2k1])
 PKG_CHECK_MODULES([jsoncpp], [jsoncpp >= 1.4.0], [], [
 	PKG_CHECK_MODULES([jsoncpp], [jsoncpp >= 0.8 jsoncpp < 1])

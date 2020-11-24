@@ -30,13 +30,6 @@
 #include <kopano/stringutil.h>
 #include <kopano/Util.h>
 #include "StatsClient.h"
-#if defined(HAVE_GPERFTOOLS_MALLOC_EXTENSION_H)
-#	include <gperftools/malloc_extension_c.h>
-#	define HAVE_TCMALLOC 1
-#elif defined(HAVE_GOOGLE_MALLOC_EXTENSION_H)
-#	include <google/malloc_extension_c.h>
-#	define HAVE_TCMALLOC 1
-#endif
 #ifdef HAVE_MALLOC_H
 #	include <malloc.h>
 #endif
@@ -63,37 +56,8 @@ ECRESULT ECSystemStatsTable::Create(ECSession *lpSession, unsigned int ulFlags,
 	return alloc_wrap<ECSystemStatsTable>(lpSession, ulFlags, locale).put(lppTable);
 }
 
-void server_stats::update_tcmalloc_stats()
-{
-#ifdef HAVE_TCMALLOC
-	size_t value = 0;
-	auto gnp = reinterpret_cast<decltype(MallocExtension_GetNumericProperty) *>(dlsym(NULL, "MallocExtension_GetNumericProperty"));
-	if (gnp == NULL)
-		return;
-
-	gnp("generic.current_allocated_bytes", &value);
-	setg("tc_allocated", "Current allocated memory by TCMalloc", value);
-	value = 0;
-	gnp("generic.heap_size", &value);
-	setg("tc_reserved", "Bytes of system memory reserved by TCMalloc", value);
-	value = 0;
-	gnp("tcmalloc.pageheap_free_bytes", &value);
-	setg("tc_page_map_free", "Number of bytes in free, mapped pages in page heap", value);
-	value = 0;
-	gnp("tcmalloc.pageheap_unmapped_bytes", &value);
-	setg("tc_page_unmap_free", "Number of bytes in free, unmapped pages in page heap (released to OS)", value);
-	value = 0;
-	gnp("tcmalloc.max_total_thread_cache_bytes", &value);
-	setg("tc_threadcache_max", "A limit to how much memory TCMalloc dedicates for small objects", value);
-	value = 0;
-	gnp("tcmalloc.current_total_thread_cache_bytes", &value);
-	setg("tc_threadcache_cur", "Current allocated memory in bytes for thread cache", value);
-#endif
-}
-
 void server_stats::fill_odm()
 {
-	update_tcmalloc_stats();
 #ifdef HAVE_MALLINFO
 	/* parallel threaded allocator */
 	struct mallinfo malloc_info = mallinfo();

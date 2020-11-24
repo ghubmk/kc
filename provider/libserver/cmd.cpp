@@ -75,13 +75,6 @@
 #include "cmdutil.hpp"
 #include "soapKCmdService.h"
 #include "cmd.hpp"
-#if defined(HAVE_GPERFTOOLS_MALLOC_EXTENSION_H)
-#	include <gperftools/malloc_extension_c.h>
-#	define HAVE_TCMALLOC 1
-#elif defined(HAVE_GOOGLE_MALLOC_EXTENSION_H)
-#	include <google/malloc_extension_c.h>
-#	define HAVE_TCMALLOC 1
-#endif
 #ifdef HAVE_KUSTOMER
 #	include <kustomer.h>
 #	include <kustomer_errors.h>
@@ -4828,22 +4821,11 @@ SOAP_ENTRY_START(purgeSoftDelete, *result, unsigned int ulDays, unsigned int *re
 }
 SOAP_ENTRY_END()
 
-static inline void kc_purge_cache_tcmalloc()
-{
-#ifdef HAVE_TCMALLOC
-	auto rfm = reinterpret_cast<decltype(MallocExtension_ReleaseFreeMemory) *>
-		(dlsym(NULL, "MallocExtension_ReleaseFreeMemory"));
-	if (rfm != NULL)
-		rfm();
-#endif
-}
-
 SOAP_ENTRY_START(purgeCache, *result, unsigned int ulFlags, unsigned int *result)
 {
     if (lpecSession->GetSecurity()->GetAdminLevel() < ADMIN_LEVEL_SYSADMIN)
 		return KCERR_NO_ACCESS;
     er = g_lpSessionManager->GetCacheManager()->PurgeCache(ulFlags);
-	kc_purge_cache_tcmalloc();
 	g_lpSessionManager->m_stats->SetTime(SCN_SERVER_LAST_CACHECLEARED, time(nullptr));
 	return er;
 }

@@ -72,7 +72,7 @@ AM_CPPFLAGS = ${ZCPPFLAGS} -DLDAP_THREAD_SAFE \
 	${KRB5_CFLAGS} ${LDAP_FLAGS} ${libHX_CFLAGS} \
 	${kcoidc_CFLAGS} ${kustomer_CFLAGS} \
 	${MYSQL_INCLUDES} ${SSL_CFLAGS} \
-	${s3_CFLAGS} ${kcoidc_CFLAGS} ${TCMALLOC_CFLAGS} \
+	${s3_CFLAGS} ${kcoidc_CFLAGS} \
 	${VMIME_CFLAGS} ${xapian_CFLAGS} ${XML2_CFLAGS}
 AM_CXXFLAGS = ${ZCXXFLAGS} -Wno-sign-compare
 

@@ -118,9 +118,6 @@ class KC_EXPORT server_stats final : public ECStatsCollector {
 	KC_HIDDEN server_stats(std::shared_ptr<ECConfig>);
 	virtual void stop() override;
 	virtual void fill_odm() override;
-
-	private:
-	KC_HIDDEN void update_tcmalloc_stats();
 };
 
 class SOURCEKEY;

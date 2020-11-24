@@ -23,7 +23,6 @@ Mandatory build-time dependencies and their minimum versions (if any):
 
 Optional build-time dependencies and their minimum versions:
 
-	* google-perftools libtcmalloc 2.0
 	* MIT Kerberos libkrb5
 	* libcurl 7
 	* libs3 4.1 (for Amazon S3 attachment storing)
