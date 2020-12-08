@@ -2841,16 +2841,16 @@ SOAP_ENTRY_START(loadObject, lpsLoadObjectResponse->er, const entryId &sEntryId,
 
 	struct saveObject sSavedObject;
 	kd_trans dtx;
-	EntryId entryid(sEntryId);
-	if (entryid.type() != MAPI_STORE) {
-		er = BeginLockFolders(lpDatabase, PR_ENTRYID, {entryid}, LOCK_SHARED, dtx, er);
+	auto entryid = reinterpret_cast<EID_V0 *>(sEntryId.__ptr);
+	if (sEntryId.__ptr != nullptr && sEntryId.__size >= sizeof(EID_V0) &&
+	    le16_to_cpu(entryid->usType) != MAPI_STORE) {
+		er = BeginLockFolders(lpDatabase, PR_ENTRYID,
+		     {std::string(reinterpret_cast<const char *>(sEntryId.__ptr), sEntryId.__size)},
+		     LOCK_SHARED, dtx, er);
 		if (er != erSuccess)
 			return er;
 	}
-	auto laters = make_scope_success([&]() {
-		if (entryid.type() != MAPI_STORE)
-			dtx.commit();
-	});
+	auto laters = make_scope_success([&]() { dtx.commit(); });
 	/*
 	 * 2 Reasons to send KCERR_UNABLE_TO_COMPLETE (and have the client try to open the store elsewhere):
 	 *  1. We can't find the object based on the entryid.
