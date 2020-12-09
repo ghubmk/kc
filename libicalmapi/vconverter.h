@@ -66,8 +66,8 @@ protected:
 	virtual HRESULT HrMAPI2ICal(LPMESSAGE lpMessage, icalproperty_method *lpicMethod, icaltimezone **lppicTZinfo, std::string *lpstrTZid, icalcomponent **lppEvent) = 0; /* pure */
 	virtual HRESULT HrMAPI2ICal(LPMESSAGE lpMessage, icalproperty_method *lpicMethod, icaltimezone **lppicTZinfo, std::string *lpstrTZid, icalcomponent *lpEvent);
 	virtual HRESULT HrFindTimezone(ULONG ulProps, LPSPropValue lpProps, std::string *lpstrTZid, TIMEZONE_STRUCT *lpTZinfo, icaltimezone **lppicTZinfo);
-	virtual HRESULT HrSetTimeProperty(time_t tStamp, bool bDateOnly, icaltimezone *lpicTZinfo, const std::string &strTZid, icalproperty_kind icalkind, icalproperty *lpicProp);
-	virtual HRESULT HrSetTimeProperty(time_t tStamp, bool bDateOnly, icaltimezone *lpicTZinfo, const std::string &strTZid, icalproperty_kind icalkind, icalcomponent *lpicEvent);
+	virtual HRESULT HrSetTimeProperty(time_t stamp, icaltimezone *, const std::string &tz, icalproperty_kind, icalproperty *);
+	virtual HRESULT HrSetTimeProperty(time_t stamp, icaltimezone *, const std::string &tz, icalproperty_kind, icalcomponent *);
 	virtual HRESULT HrSetOrganizerAndAttendees(LPMESSAGE lpParentMsg /* if exception*/, LPMESSAGE lpMessage, ULONG ulProps, LPSPropValue lpProps, icalproperty_method *lpicMethod, icalcomponent *lpicEvent);
 	virtual HRESULT HrSetTimeProperties(LPSPropValue lpMsgProps, ULONG ulMsgProps, icaltimezone *lpicTZinfo, const std::string &strTZid, icalcomponent *lpEvent);
 	virtual HRESULT HrSetICalAttendees(LPMESSAGE lpMessage, const std::wstring &strOrganizer, icalcomponent *lpicEvent);

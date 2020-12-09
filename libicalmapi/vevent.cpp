@@ -443,11 +443,13 @@ HRESULT VEventConverter::HrSetTimeProperties(LPSPropValue lpMsgProps, ULONG ulMs
 		}
 	}
  	
-	lpPropVal = PCpropFindProp(lpMsgProps, ulMsgProps, CHANGE_PROP_TYPE(m_lpNamedProps->aulPropTag[PROP_ALLDAYEVENT], PT_BOOLEAN));
-	auto bIsAllDay = lpPropVal != nullptr && lpPropVal->Value.b;
-	// @note If bIsAllDay == true, the item is an allday event "in the timezone it was created in" (and the user selected the allday event option)
-	// In another timezone, Outlook will display the item as a 24h event with times (and the allday event option disabled)
-	// However, in ICal, you cannot specify a timezone for a date, so ICal will show this as an allday event in every timezone your client is in.
+	// @note If bIsAllDay == true, the item is an allday event "in the
+	// timezone it was created in" (and the user selected the allday event option).
+	// In another timezone, Outlook will display the item as a 24h event
+	// with times (and the allday event option disabled).
+	// However, in ICal, you cannot specify a timezone for a date, so to
+	// cater for the above, allday events need to be represented as a 24h
+	// event.
 
 	// Set start time / DTSTART
 	lpPropVal = PCpropFindProp(lpMsgProps, ulMsgProps, CHANGE_PROP_TYPE(m_lpNamedProps->aulPropTag[ulStartIndex], PT_SYSTIME));
@@ -455,7 +457,7 @@ HRESULT VEventConverter::HrSetTimeProperties(LPSPropValue lpMsgProps, ULONG ulMs
 		// do not create calendar items without start/end date, which is invalid.
 		return MAPI_E_CORRUPT_DATA;
 	auto ttTime = FileTimeToUnixTime(lpPropVal->Value.ft);
-	hr = HrSetTimeProperty(ttTime, bIsAllDay, lpicTZinfo, strTZid, ICAL_DTSTART_PROPERTY, lpEvent);
+	hr = HrSetTimeProperty(ttTime, lpicTZinfo, strTZid, ICAL_DTSTART_PROPERTY, lpEvent);
 	if (hr != hrSuccess)
 		return hr;
 
@@ -465,7 +467,7 @@ HRESULT VEventConverter::HrSetTimeProperties(LPSPropValue lpMsgProps, ULONG ulMs
 		// do not create calendar items without start/end date, which is invalid.
 		return MAPI_E_CORRUPT_DATA;
 	ttTime = FileTimeToUnixTime(lpPropVal->Value.ft);
-	hr = HrSetTimeProperty(ttTime, bIsAllDay, lpicTZinfo, strTZid, ICAL_DTEND_PROPERTY, lpEvent);
+	hr = HrSetTimeProperty(ttTime, lpicTZinfo, strTZid, ICAL_DTEND_PROPERTY, lpEvent);
 	if (hr != hrSuccess)
 		return hr;
 	// @note we never set the DURATION property: MAPI objects always should have the end property 
@@ -480,7 +482,7 @@ HRESULT VEventConverter::HrSetTimeProperties(LPSPropValue lpMsgProps, ULONG ulMs
 	ttTime = FileTimeToUnixTime(lpPropVal->Value.ft);
 	auto lpProp = icalproperty_new_x("overwrite-me");
 	icalproperty_set_x_name(lpProp, "X-MS-OLK-ORIGINALSTART");
-	hr = HrSetTimeProperty(ttTime, bIsAllDay, lpicTZinfo, strTZid, ICAL_DTSTART_PROPERTY, lpProp);
+	hr = HrSetTimeProperty(ttTime, lpicTZinfo, strTZid, ICAL_DTSTART_PROPERTY, lpProp);
 	if (hr != hrSuccess)
 		return hr;
 	icalcomponent_add_property(lpEvent, lpProp);
@@ -493,7 +495,7 @@ HRESULT VEventConverter::HrSetTimeProperties(LPSPropValue lpMsgProps, ULONG ulMs
 	ttTime = FileTimeToUnixTime(lpPropVal->Value.ft);
 	lpProp = icalproperty_new_x("overwrite-me");
 	icalproperty_set_x_name(lpProp, "X-MS-OLK-ORIGINALEND");
-	hr = HrSetTimeProperty(ttTime, bIsAllDay, lpicTZinfo, strTZid, ICAL_DTEND_PROPERTY, lpProp);
+	hr = HrSetTimeProperty(ttTime, lpicTZinfo, strTZid, ICAL_DTEND_PROPERTY, lpProp);
 	if (hr != hrSuccess)
 		return hr;
 	icalcomponent_add_property(lpEvent, lpProp);

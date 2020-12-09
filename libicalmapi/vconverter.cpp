@@ -1475,51 +1475,22 @@ done:
 	return hr;
 }
 
-HRESULT VConverter::HrSetTimeProperty(time_t tStamp, bool bDateOnly, icaltimezone *lpicTZinfo, const std::string &strTZid, icalproperty_kind icalkind, icalproperty *lpicProp)
+HRESULT VConverter::HrSetTimeProperty(time_t tStamp, icaltimezone *lpicTZinfo,
+    const std::string &strTZid, icalproperty_kind icalkind,
+    icalproperty *lpicProp)
 {
 	icaltimetype ittStamp;
 
-	// if (bDateOnly && !lpicTZinfo)
-	/*
-	 * ZCP-12962: Disregarding tzinfo. Even a minor miscalculation can
-	 * cause a day shift; if possible, we should probably improve the
-	 * actual calculation when we encounter such a problem.
-	 */
-	if (bDateOnly) {
-		struct tm date;
-		// We have a problem now. This is a 'date' property type, so time information should not be sent. However,
-		// the timestamp in tStamp *does* have a time part, which is indicating the start of the day in GMT (so, this
-		// would be say 23:00 in central europe, and 03:00 in brasil). This means that if we 'just' take the date part
-		// of the timestamp, you will get the wrong day if you're east of GMT. Unfortunately, we don't know the
-		// timezone either, so we have to do some guesswork. What we do now is a 'round to closest date'. This will
-		// basically work for any timezone that has an offset between GMT+13 and GMT-10. So the 4th at 23:00 will become
-		// the 5h, and the 5th at 03:00 will become the 5th.
-
-		/* So this is a known problem for users in GMT+14, GMT-12 and
-		 * GMT-11 (Kiribati, Samoa, ..). Sorry. Fortunately, there are
-		 * not many people in these timezones. For this to work
-		 * correctly, clients should store the correct timezone in the
-		 * appointment (WebApp does not do this currently), and we need
-		 * to consider timezones here again.
-		 */
-		gmtime_r(&tStamp, &date);
-		if (date.tm_hour >= 11)
-			// Move timestamp up one day so that later conversion to date-only will be correct
-			tStamp += 86400;
-	}
-
-	if (!bDateOnly && lpicTZinfo != nullptr) {
-		ittStamp = icaltime_from_timet_with_zone(tStamp, bDateOnly, lpicTZinfo);
+	if (lpicTZinfo != nullptr) {
+		ittStamp = icaltime_from_timet_with_zone(tStamp, false, lpicTZinfo);
 		kc_ical_utc(ittStamp, false);
 	}
 	else {
-		ittStamp = icaltime_from_timet_with_zone(tStamp, bDateOnly, icaltimezone_get_utc_timezone());
+		ittStamp = icaltime_from_timet_with_zone(tStamp, false, icaltimezone_get_utc_timezone());
 	}
-
-	icalproperty_set_value(lpicProp, bDateOnly ? icalvalue_new_date(ittStamp) :
-		icalvalue_new_datetime(ittStamp));
+	icalproperty_set_value(lpicProp, icalvalue_new_datetime(ittStamp));
 	// only allowed to add timezone information on non-allday events
-	if (lpicTZinfo && !bDateOnly)
+	if (lpicTZinfo != nullptr)
 		icalproperty_add_parameter(lpicProp, icalparameter_new_from_value_string(ICAL_TZID_PARAMETER, strTZid.c_str()));
 	return hrSuccess;
 }
@@ -1536,13 +1507,14 @@ HRESULT VConverter::HrSetTimeProperty(time_t tStamp, bool bDateOnly, icaltimezon
  * @param[in,out] lpicEvent Ical property will be added to this event, when hrSuccess is returned.
  * @return MAPI error code
 */
-HRESULT VConverter::HrSetTimeProperty(time_t tStamp, bool bDateOnly, icaltimezone *lpicTZinfo, const std::string &strTZid, icalproperty_kind icalkind, icalcomponent *lpicEvent)
+HRESULT VConverter::HrSetTimeProperty(time_t tStamp, icaltimezone *lpicTZinfo,
+    const std::string &strTZid, icalproperty_kind icalkind,
+    icalcomponent *lpicEvent)
 {
 	icalproperty *lpicProp = icalproperty_new(icalkind);
 	if (lpicProp == NULL)
 		return MAPI_E_INVALID_PARAMETER;
-
-	auto hr = HrSetTimeProperty(tStamp, bDateOnly, lpicTZinfo, strTZid,
+	auto hr = HrSetTimeProperty(tStamp, lpicTZinfo, strTZid,
 	          icalkind, lpicProp);
 	icalcomponent_add_property(lpicEvent, lpicProp);
 	return hr;
@@ -2228,14 +2200,6 @@ HRESULT VConverter::HrSetRecurrenceID(LPSPropValue lpMsgProps, ULONG ulMsgProps,
 	/* 0 is "start of day", hence -1 as default */
 	ULONG ulRecurStartTime = lpPropVal != nullptr ? lpPropVal->Value.ul : -1;
 	lpPropVal = PCpropFindProp(lpMsgProps, ulMsgProps, CHANGE_PROP_TYPE(m_lpNamedProps->aulPropTag[PROP_RECURENDTIME], PT_LONG));
-	ULONG ulRecurEndTime = lpPropVal != nullptr ? lpPropVal->Value.ul : -1;
-
-	// check to know if series is all day or not.
-	// ulRecurStartTime = 0 -> recurrence series starts at 00:00 AM
-	// ulRecurEndTime = 24 * 4096 -> recurrence series ends at 12:00 PM
-	// 60 sec -> highest pow of 2 after 60 -> 64
-	// 60 mins -> 60 * 64 = 3840 -> highest pow of 2 after 3840 -> 4096
-	auto bIsSeriesAllDay = ulRecurStartTime == 0 && ulRecurEndTime == 24 * 4096;
 
 	// set Recurrence-ID for exception msg if dispidRecurringbase prop is present
 	lpPropVal = PCpropFindProp(lpMsgProps, ulMsgProps, CHANGE_PROP_TYPE(m_lpNamedProps->aulPropTag[PROP_RECURRINGBASE], PT_SYSTIME));
@@ -2262,13 +2226,12 @@ HRESULT VConverter::HrSetRecurrenceID(LPSPropValue lpMsgProps, ULONG ulMsgProps,
 		icTime.minute = ulRecurStartTime / 64;
 		icTime.second = ulRecurStartTime - icTime.minute * 64;
 		// set correct date for all_day
-		tRecId = bIsSeriesAllDay ? icaltime_as_timet(icTime) :
-		         icaltime_as_timet_with_zone(icTime, lpicTZinfo);
+		tRecId = icaltime_as_timet_with_zone(icTime, lpicTZinfo);
 	} else {
 		tRecId = FileTimeToUnixTime(lpPropVal->Value.ft);
 	}
 
-	return HrSetTimeProperty(tRecId, bIsSeriesAllDay, lpicTZinfo, strTZid,
+	return HrSetTimeProperty(tRecId, lpicTZinfo, strTZid,
 	       ICAL_RECURRENCEID_PROPERTY, lpEvent);
 }
 
@@ -2427,12 +2390,12 @@ HRESULT VConverter::HrSetRecurrence(LPMESSAGE lpMessage, icalcomponent *lpicEven
 
 		// 1. get new StartDateTime and EndDateTime from exception and make DTSTART and DTEND in sTimeZone
 		tNewTime = LocalToUTC(tNewTime, zone);
-		hr = HrSetTimeProperty(tNewTime, bIsAllDayException, lpicTZinfo,
+		hr = HrSetTimeProperty(tNewTime, lpicTZinfo,
 		     strTZid, ICAL_DTSTART_PROPERTY, lpicException.get());
 		if (hr != hrSuccess)
 			continue;
 		tNewTime = LocalToUTC(cRecurrence.getModifiedEndDateTime(i), zone);
-		hr = HrSetTimeProperty(tNewTime, bIsAllDayException, lpicTZinfo,
+		hr = HrSetTimeProperty(tNewTime, lpicTZinfo,
 		     strTZid, ICAL_DTEND_PROPERTY, lpicException.get());
 		if (hr != hrSuccess)
 			continue;
@@ -2442,7 +2405,7 @@ HRESULT VConverter::HrSetRecurrence(LPMESSAGE lpMessage, icalcomponent *lpicEven
 
 		if (lpProp) {
 			tNewTime = FileTimeToUnixTime(lpProp->Value.ft);
-			hr = HrSetTimeProperty(tNewTime, bIsAllDay, lpicTZinfo,
+			hr = HrSetTimeProperty(tNewTime, lpicTZinfo,
 			     strTZid, ICAL_RECURRENCEID_PROPERTY, lpicException.get());
 			if (hr != hrSuccess)
 				continue;
