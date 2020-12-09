@@ -2704,8 +2704,6 @@ HRESULT VConverter::HrAddTimeZone(icalproperty *lpicProp, icalitem *lpIcalItem)
  */
 HRESULT VConverter::HrRetrieveAlldayStatus(icalcomponent *lpicEvent, bool *lpblIsAllday)
 {
-	// Note: we do not set bIsAllDay to true when (END-START)%24h == 0
-	// If the user forced his ICAL client not to set this to 'true', it really wants an item that is a multiple of 24h, but specify the times too.
 	auto icStart = icalcomponent_get_dtstart(lpicEvent);
 	if (icStart.is_date)
 	{
@@ -2713,14 +2711,6 @@ HRESULT VConverter::HrRetrieveAlldayStatus(icalcomponent *lpicEvent, bool *lpblI
 		return hrSuccess;
 	}
 
-	// only assume the X header valid when it's a non-floating timestamp.
-	// also check is_utc and/or zone pointer in DTSTART/DTEND ?
-	auto icEnd = icalcomponent_get_dtend(lpicEvent);
-	if (icStart.hour + icStart.minute + icStart.second != 0 ||
-	    icEnd.hour + icEnd.minute + icEnd.second != 0) {
-		*lpblIsAllday = false;
-		return hrSuccess;
-	}
 	for (auto lpicProp = icalcomponent_get_first_property(lpicEvent, ICAL_X_PROPERTY);
 	     lpicProp != nullptr;
 	     lpicProp = icalcomponent_get_next_property(lpicEvent, ICAL_X_PROPERTY)) {
