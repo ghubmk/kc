@@ -316,7 +316,9 @@ HRESULT VEventConverter::HrAddTimes(icalproperty_method icMethod, icalcomponent 
 	timeDTStartUTC = ICalTimeTypeToUTC(lpicEventRoot, lpicDTStartProp);
 	timeDTStartLocal = ICalTimeTypeToLocal(lpicDTStartProp);
 	timeStartOffset = timeDTStartUTC - timeDTStartLocal;
-	sPropVal.Value.ft = UnixTimeToFileTime(bIsAllday ? timeDTStartLocal : timeDTStartUTC);
+	printf("start: u %u l %u of %u\n",
+		(int)timeDTStartUTC, (int)timeDTStartLocal, (int)timeStartOffset);
+	sPropVal.Value.ft = UnixTimeToFileTime(timeDTStartUTC);
 	// Set 0x820D / ApptStartWhole
 	sPropVal.ulPropTag = CHANGE_PROP_TYPE(m_lpNamedProps->aulPropTag[PROP_APPTSTARTWHOLE], PT_SYSTIME);
 	lpIcalItem->lstMsgProps.emplace_back(sPropVal);
@@ -353,7 +355,7 @@ HRESULT VEventConverter::HrAddTimes(icalproperty_method icMethod, icalcomponent 
 		timeDTEndUTC = timeDTStartUTC + icaldurationtype_as_int(dur);
 	}
 	timeEndOffset = timeDTEndUTC - timeDTEndLocal;
-	sPropVal.Value.ft = UnixTimeToFileTime(bIsAllday ? timeDTEndLocal : timeDTEndUTC);
+	sPropVal.Value.ft = UnixTimeToFileTime(timeDTEndUTC);
 	sPropVal.ulPropTag = CHANGE_PROP_TYPE(m_lpNamedProps->aulPropTag[PROP_APPTENDWHOLE], PT_SYSTIME);
 	lpIcalItem->lstMsgProps.emplace_back(sPropVal);
 	
