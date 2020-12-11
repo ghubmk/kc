@@ -1758,6 +1758,117 @@ HRESULT ECMessage::TableRowGetProp(void *lpProvider,
 	return MAPI_E_NOT_FOUND;
 }
 
+enum {
+	PREFIX_ABORT,
+	PREFIX_OK,
+	PREFIX_NOTFOUND,
+	PREFIX_MISMATCH,
+};
+
+/*
+ * @ptyp:	%PT_STRING8/%PT_TSTRING/%PT_UNICODE
+ *
+ * """If the PR_SUBJECT_PREFIX is present and is an initial substring
+ * of PR_SUBJECT, PR_NORMALIZED_SUBJECT and associated properties are
+ * set to the contents of PR_SUBJECT with the prefix removed."""
+ *
+ * Returns negative for error, 0 for nomatch, 1 for match.
+ */
+static int normsubj_fixed_prefix(ECMessage *msg, unsigned int ptyp,
+    unsigned int flags, void *base, SPropValue *normsubj, SPropValue &pfx,
+    int &err)
+{
+	err = msg->HrGetRealProp(CHANGE_PROP_TYPE(PR_SUBJECT_PREFIX, ptyp), flags, base, &pfx);
+	if (err == MAPI_E_NOT_FOUND)
+		return PREFIX_NOTFOUND;
+	else if (err != hrSuccess)
+		return PREFIX_ABORT;
+	if (ptyp == PT_UNICODE) {
+		auto pfxlen = wcslen(pfx.Value.lpszW);
+		if (wcsncmp(normsubj->Value.lpszW, pfx.Value.lpszW, pfxlen) != 0)
+			return PREFIX_MISMATCH;
+		normsubj->Value.lpszW += pfxlen;
+		return PREFIX_OK;
+	}
+	auto pfxlen = strlen(pfx.Value.lpszA);
+	if (strncmp(normsubj->Value.lpszA, pfx.Value.lpszA, pfxlen) != 0)
+		return PREFIX_MISMATCH;
+	normsubj->Value.lpszA += pfxlen;
+	return PREFIX_OK;
+}
+
+static int normsubj_auto_prefix(ECMessage *msg, unsigned int ptyp,
+    unsigned int flags, void *base, SPropValue *normsubj,
+    SPropValue &pfx, int &err)
+{
+	if (ptyp == PT_UNICODE) {
+		auto p = wcschr(normsubj->Value.lpszW, L':');
+		if (p == nullptr || p[1] != L' ')
+			return PREFIX_NOTFOUND;
+		auto pfxlen = p - normsubj->Value.lpszW;
+		if (pfxlen == 0 || pfxlen > 3)
+			return PREFIX_NOTFOUND;
+		for (auto c = normsubj->Value.lpszW; c != p; ++c)
+			if (iswdigit(*c) || iswblank(*c) || iswpunct(*c))
+				return PREFIX_NOTFOUND;
+		err = MAPIAllocateMore(pfxlen + 1, base, reinterpret_cast<void **>(&pfx.Value.lpszW));
+		if (err != hrSuccess)
+			return PREFIX_ABORT;
+		memcpy(pfx.Value.lpszW, normsubj->Value.lpszW, pfxlen * sizeof(wchar_t));
+		pfx.Value.lpszW[pfxlen] = L'\0';
+		return PREFIX_OK;
+	}
+	auto p = strchr(normsubj->Value.lpszA, ':');
+	if (p == nullptr || p[1] != ' ')
+		return PREFIX_NOTFOUND;
+	auto pfxlen = p - normsubj->Value.lpszA;
+	if (pfxlen == 0 || pfxlen > 3)
+		return PREFIX_NOTFOUND;
+	for (auto c = normsubj->Value.lpszA; c != p; ++p)
+		if (isdigit(*c) || isblank(*c) || ispunct(*c))
+			return PREFIX_NOTFOUND;
+	err = MAPIAllocateMore(pfxlen + 1, base, reinterpret_cast<void **>(&pfx.Value.lpszA));
+	if (err != hrSuccess)
+		return PREFIX_ABORT;
+	memcpy(pfx.Value.lpszA, normsubj->Value.lpszA, pfxlen);
+	pfx.Value.lpszA[pfxlen] = '\0';
+	return PREFIX_OK;
+}
+
+static int make_normalized_subject(ECMessage *msg, unsigned int ptyp,
+    unsigned int flags, void *base, SPropValue *normsubj)
+{
+	/*
+	 * Derivation as per
+	 * https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtagnormalizedsubject-canonical-property
+	 * (Slightly different from MS-OXCMAIL § 2.2.3.2.6.1 in that
+	 * the hyperlinked page also bans all punctuation — not just
+	 * colons — in the prefix, and that does seem reasonable.)
+	 */
+	auto err = msg->HrGetRealProp(CHANGE_PROP_TYPE(PR_SUBJECT, ptyp), flags, base, normsubj);
+	if (err != hrSuccess) {
+		normsubj->ulPropTag = CHANGE_PROP_TYPE(PR_NORMALIZED_SUBJECT, PT_ERROR);
+		return err;
+	}
+	normsubj->ulPropTag = CHANGE_PROP_TYPE(PR_NORMALIZED_SUBJECT, ptyp);
+
+	SPropValue pfx{};
+	auto ret = normsubj_fixed_prefix(msg, ptyp, flags, base, normsubj, pfx, err);
+	if (ret == PREFIX_ABORT)
+		return err;
+	else if (ret == PREFIX_OK)
+		return erSuccess;
+
+	ret = normsubj_auto_prefix(msg, ptyp, flags, base, normsubj, pfx, err);
+	if (ret == PREFIX_ABORT)
+		return err;
+	if (ret == PREFIX_OK)
+		/* normsubj edited */
+		return erSuccess;
+	/* normsubj left as-is, also within spec. */
+	return erSuccess;
+}
+
 HRESULT ECMessage::GetPropHandler(unsigned int ulPropTag, void *lpProvider,
     unsigned int ulFlags, SPropValue *lpsPropValue, ECGenericProp *lpParam,
     void *lpBase)
@@ -1799,45 +1910,12 @@ HRESULT ECMessage::GetPropHandler(unsigned int ulPropTag, void *lpProvider,
 		break;
 	}
 	case PROP_ID(PR_NORMALIZED_SUBJECT): {
-		hr = lpMessage->HrGetRealProp(CHANGE_PROP_TYPE(PR_SUBJECT, PROP_TYPE(ulPropTag)), ulFlags, lpBase, lpsPropValue);
-		if (hr != hrSuccess) {
-			// change PR_SUBJECT in PR_NORMALIZED_SUBJECT
-			lpsPropValue->ulPropTag = CHANGE_PROP_TYPE(PR_NORMALIZED_SUBJECT, PT_ERROR);
+		auto ret = make_normalized_subject(lpMessage,
+		           PROP_TYPE(ulPropTag), ulFlags, lpBase, lpsPropValue);
+		if (ret != hrSuccess)
 			break;
-		}
-
-		if (PROP_TYPE(ulPropTag) == PT_UNICODE) {
-			lpsPropValue->ulPropTag = PR_NORMALIZED_SUBJECT_W;
-
-			auto lpszColon = wcschr(lpsPropValue->Value.lpszW, ':');
-			if (lpszColon && (lpszColon - lpsPropValue->Value.lpszW) > 1 && (lpszColon - lpsPropValue->Value.lpszW) < 4) {
-				auto c = lpsPropValue->Value.lpszW;
-				while (c < lpszColon && iswdigit(*c))
-					++c; // test for all digits prefix
-				if (c != lpszColon) {
-					++lpszColon;
-					if (*lpszColon == ' ')
-						++lpszColon;
-					lpsPropValue->Value.lpszW = lpszColon; // set new subject string
-				}
-			}
-			break;
-		}
-		lpsPropValue->ulPropTag = PR_NORMALIZED_SUBJECT_A;
-		char *lpszColon = strchr(lpsPropValue->Value.lpszA, ':');
-		if (lpszColon && (lpszColon - lpsPropValue->Value.lpszA) > 1 && (lpszColon - lpsPropValue->Value.lpszA) < 4) {
-			char *c = lpsPropValue->Value.lpszA;
-			while (c < lpszColon && isdigit(*c))
-				++c; // test for all digits prefix
-			if (c != lpszColon) {
-				++lpszColon;
-				if (*lpszColon == ' ')
-					++lpszColon;
-				lpsPropValue->Value.lpszA = lpszColon; // set new subject string
-			}
-		}
-		break;
 	}
+
 	case PROP_ID(PR_PARENT_ENTRYID):
 		if (lpMessage->m_lpParentID == nullptr) {
 			hr = lpMessage->HrGetRealProp(PR_PARENT_ENTRYID, ulFlags, lpBase, lpsPropValue);
