@@ -90,9 +90,7 @@ class KC_EXPORT iconv_context_base {
 /**
  * @brief	Default converter from one charset to another with string types.
  */
-template<typename To_Type, typename From_Type>
-class KC_EXPORT_DYCAST iconv_context KC_FINAL :
-    public iconv_context_base {
+class iconv_context KC_FINAL : public iconv_context_base {
 	public:
 	/**
 	 * Constructs a iconv_context_base with the tocode based on the To_Type
@@ -110,7 +108,7 @@ class KC_EXPORT_DYCAST iconv_context KC_FINAL :
 	 * @param[in] cbRaw		The size in bytes of the data to be converted.
 	 * @return				The converted string.
 	 */
-	To_Type convert(const char *lpRaw, size_t cbRaw)
+	template<typename To_Type> To_Type convert(To_Type *null, const char *lpRaw, size_t cbRaw)
 	{
 		To_Type m_to;
 		doconvert(lpRaw, cbRaw, &m_to, [](void *obj, const char *b, size_t z) {
@@ -128,9 +126,10 @@ class KC_EXPORT_DYCAST iconv_context KC_FINAL :
 	 * @param[in] _from		The string to be converted.
 	 * @return				The converted string.
 	 */
-	To_Type convert(const From_Type &from)
+	template<typename To_Type, typename From_Type>
+	To_Type convert(To_Type *null, const From_Type &from)
 	{
-		return convert(iconv_charset<From_Type>::rawptr(from),
+		return convert(null, iconv_charset<From_Type>::rawptr(from),
 		       iconv_charset<From_Type>::rawsize(from));
 	}
 };
@@ -172,23 +171,24 @@ public:
 	KC_HIDDEN To_Type convert_to(const From_Type &from)
 	{
 		static_assert(!std::is_same<To_Type, From_Type>::value, "pointless conversion");
-		return get_context<To_Type, From_Type>(iconv_charset<To_Type>::name(), iconv_charset<From_Type>::name())->convert(from);
+		return get_context<To_Type, From_Type>(iconv_charset<To_Type>::name(), iconv_charset<From_Type>::name()).
+		       convert(static_cast<To_Type *>(nullptr), from);
 	}
 
 	template<typename To_Type, typename From_Type>
 	KC_HIDDEN To_Type convert_to(const From_Type &from, size_t cbBytes,
 	    const char *fromcode)
 	{
-		return get_context<To_Type, From_Type>(iconv_charset<To_Type>::name(), fromcode)->
-		       convert(iconv_charset<From_Type>::rawptr(from), cbBytes);
+		return get_context<To_Type, From_Type>(iconv_charset<To_Type>::name(), fromcode).
+		       convert(static_cast<To_Type *>(nullptr), iconv_charset<From_Type>::rawptr(from), cbBytes);
 	}
 
 	template<typename To_Type, typename From_Type>
 	KC_HIDDEN To_Type convert_to(const char *tocode,
 	    const From_Type &from, size_t cbBytes, const char *fromcode)
 	{
-		return get_context<To_Type, From_Type>(tocode, fromcode)->
-		       convert(iconv_charset<From_Type>::rawptr(from), cbBytes);
+		return get_context<To_Type, From_Type>(tocode, fromcode).
+		       convert(static_cast<To_Type *>(nullptr), iconv_charset<From_Type>::rawptr(from), cbBytes);
 	}
 
 private:
@@ -237,14 +237,14 @@ private:
 	 * @return					A pointer to a iconv_context.
 	 */
 	template<typename To_Type, typename From_Type>
-	KC_HIDDEN iconv_context<To_Type, From_Type> *
+	KC_HIDDEN iconv_context &
 	get_context(const char *tocode, const char *fromcode)
 	{
 		context_key key(create_key<To_Type, From_Type>(tocode, fromcode));
 		auto iContext = m_contexts.find(key);
 		if (iContext == m_contexts.cend())
-			iContext = m_contexts.emplace(key, std::make_unique<iconv_context<To_Type, From_Type>>(tocode, fromcode)).first;
-		return dynamic_cast<iconv_context<To_Type, From_Type> *>(iContext->second.get());
+			iContext = m_contexts.emplace(key, std::make_unique<iconv_context>(tocode, fromcode)).first;
+		return *iContext->second;
 	}
 
 	/**
@@ -255,7 +255,7 @@ private:
 		pfFromCode = 2
 	};
 
-	std::map<context_key, std::unique_ptr<iconv_context_base>> m_contexts;
+	std::map<context_key, std::unique_ptr<iconv_context>> m_contexts;
 	std::list<std::string>	m_lstStrings;
 	std::list<std::wstring>	m_lstWstrings;
 
