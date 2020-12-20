@@ -75,17 +75,9 @@ class KC_EXPORT iconv_context_base {
 	 * @param[in] lpFrom	Pointer to the source data.
 	 * @param[in] cbFrom	Size of the source data in bytes.
 	 */
-	void doconvert(const char *lpFrom, size_t cbFrom);
+	void doconvert(const char *lpFrom, size_t cbFrom, void *obj, void (*append)(void *, const char *, size_t));
 
 	private:
-	/**
-	 * @brief Appends converted data to the result.
-	 *
-	 * @param[in] lpBuf		Pointer to the data to be appended.
-	 * @param[in] cbBuf		Size of the data to be appended in bytes.
-	 */
-	KC_HIDDEN virtual void append(const char *buf, size_t bufsize) = 0;
-
 	iconv_t	m_cd = reinterpret_cast<iconv_t>(-1);
 	bool m_bForce = true; /* Ignore illegal sequences by default. */
 	bool m_bHTML = false, m_translit_run = false;
@@ -121,7 +113,11 @@ class KC_EXPORT_DYCAST iconv_context KC_FINAL :
 	To_Type convert(const char *lpRaw, size_t cbRaw)
 	{
 		m_to.clear();
-		doconvert(lpRaw, cbRaw);
+		doconvert(lpRaw, cbRaw, this, [](void *obj, const char *b, size_t z) {
+			static_cast<iconv_context<To_Type, From_Type> *>(obj)->
+				m_to.append(reinterpret_cast<typename To_Type::const_pointer>(b),
+				z / sizeof(typename To_Type::value_type));
+		});
 		return m_to;
 	}
 
@@ -139,12 +135,6 @@ class KC_EXPORT_DYCAST iconv_context KC_FINAL :
 	}
 
 	private:
-	KC_HIDDEN void append(const char *lpBuf, size_t cbBuf) KC_OVERRIDE
-	{
-		m_to.append(reinterpret_cast<typename To_Type::const_pointer>(lpBuf),
-			cbBuf / sizeof(typename To_Type::value_type));
-	}
-
 	To_Type	m_to;
 };
 
