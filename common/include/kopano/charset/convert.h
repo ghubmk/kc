@@ -164,30 +164,6 @@ class KC_EXPORT_DYCAST iconv_context KC_FINAL :
 	To_Type	m_to;
 };
 
-template<typename To_Type, typename From_Type>
-inline To_Type convert_to(const From_Type &from)
-{
-	static_assert(!std::is_same<To_Type, From_Type>::value, "pointless conversion");
-	iconv_context<To_Type, From_Type> context;
-	return context.convert(from);
-}
-
-template<typename To_Type, typename From_Type> inline To_Type
-convert_to(const From_Type &from, size_t cbBytes, const char *fromcode)
-{
-	iconv_context<To_Type, From_Type> context(fromcode);
-	return context.convert(iconv_charset<From_Type>::rawptr(from), cbBytes);
-}
-
-template<typename To_Type, typename From_Type>
-inline To_Type convert_to(const char *tocode, const From_Type &from,
-    size_t cbBytes, const char *fromcode)
-{
-	iconv_context<To_Type, From_Type> context(tocode, fromcode);
-	return context.convert(iconv_charset<From_Type>::rawptr(from), cbBytes);
-}
-
-
 /**
  * @brief	Allows multiple conversions within the same context.
  *
@@ -357,6 +333,28 @@ private:
 	convert_context(const convert_context &) = delete;
 	convert_context &operator=(const convert_context &) = delete;
 };
+
+template<typename To_Type, typename From_Type>
+inline To_Type convert_to(const From_Type &from)
+{
+	static_assert(!std::is_same<To_Type, From_Type>::value, "pointless conversion");
+	return convert_context().convert_to<To_Type>(from);
+}
+
+template<typename To_Type, typename From_Type> inline To_Type
+convert_to(const From_Type &from, size_t cbBytes, const char *fromcode)
+{
+	return convert_context().convert_to<To_Type>(iconv_charset<From_Type>::rawptr(from),
+	       cbBytes, fromcode);
+}
+
+template<typename To_Type, typename From_Type>
+inline To_Type convert_to(const char *tocode, const From_Type &from,
+    size_t cbBytes, const char *fromcode)
+{
+	return convert_context().convert_to<To_Type>(tocode,
+	       iconv_charset<From_Type>::rawptr(from), cbBytes, fromcode);
+}
 
 extern KC_EXPORT HRESULT HrFromException(const convert_exception &);
 
