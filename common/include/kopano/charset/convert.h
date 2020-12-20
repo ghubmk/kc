@@ -103,22 +103,6 @@ class KC_EXPORT_DYCAST iconv_context KC_FINAL :
     public iconv_context_base {
 	public:
 	/**
-	 * Constructs a iconv_context_base with the right tocode and fromcode based
-	 * on the To_Type and From_Type template parameters.
-	 */
-	iconv_context() :
-		iconv_context_base(iconv_charset<To_Type>::name(), iconv_charset<From_Type>::name())
-	{}
-
-	/**
-	 * Constructs a iconv_context_base with the tocode based on the To_Type
-	 * and the passed fromcode.
-	 */
-	iconv_context(const char *fromcode) :
-		iconv_context_base(iconv_charset<To_Type>::name(), fromcode)
-	{}
-
-	/**
 	 * Constructs a iconv_context_base with the tocode based on the To_Type
 	 * and the passed fromcode.
 	 */
@@ -271,7 +255,7 @@ private:
 		context_key key(create_key<To_Type, From_Type>(NULL, NULL));
 		auto iContext = m_contexts.find(key);
 		if (iContext == m_contexts.cend())
-			iContext = m_contexts.emplace(key, std::make_unique<iconv_context<To_Type, From_Type>>()).first;
+			iContext = m_contexts.emplace(key, std::make_unique<iconv_context<To_Type, From_Type>>(iconv_charset<To_Type>::name(), iconv_charset<From_Type>::name())).first;
 		return dynamic_cast<iconv_context<To_Type, From_Type> *>(iContext->second.get());
 	}
 
@@ -292,7 +276,7 @@ private:
 		context_key key(create_key<To_Type, From_Type>(NULL, fromcode));
 		auto iContext = m_contexts.find(key);
 		if (iContext == m_contexts.cend())
-			iContext = m_contexts.emplace(key, std::make_unique<iconv_context<To_Type, From_Type>>(fromcode)).first;
+			iContext = m_contexts.emplace(key, std::make_unique<iconv_context<To_Type, From_Type>>(iconv_charset<To_Type>::name(), fromcode)).first;
 		return dynamic_cast<iconv_context<To_Type, From_Type> *>(iContext->second.get());
 	}
 
