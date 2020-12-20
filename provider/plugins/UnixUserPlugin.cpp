@@ -101,13 +101,7 @@ UnixUserPlugin::UnixUserPlugin(std::mutex &pluginlock,
 void UnixUserPlugin::InitPlugin(std::shared_ptr<ECStatsCollector> sc)
 {
 	DBPlugin::InitPlugin(std::move(sc));
-
-	// we only need unix_charset -> kopano charset
-	try {
-		m_iconv.reset(new decltype(m_iconv)::element_type("utf-8", m_config->GetSetting("fullname_charset")));
-	} catch (const convert_exception &) {
-		throw std::runtime_error("Cannot setup charset converter, check \"fullname_charset\" in cfg");
-	}
+	m_charset = m_config->GetSetting("fullname_charset");
 }
 
 void UnixUserPlugin::findUserID(const std::string &id, struct passwd *pwd, char *buffer)
@@ -310,14 +304,15 @@ bool UnixUserPlugin::matchUserObject(struct passwd *pw,
 	bool matched = false;
 
 	// username or fullname
+	auto u8gecos = convert_to<utf8string>(pw->pw_gecos, rawsize(pw->pw_gecos), m_charset);
 	if (ulFlags & EMS_AB_ADDRESS_LOOKUP)
 		matched =
 			strcasecmp(pw->pw_name, match.c_str()) == 0 ||
-			strcasecmp(m_iconv->convert(pw->pw_gecos).c_str(), match.c_str()) == 0;
+			strcasecmp(u8gecos.z_str(), match.c_str()) == 0;
 	else
 		matched =
 			strncasecmp(pw->pw_name, match.c_str(), match.size()) == 0 ||
-			strncasecmp(m_iconv->convert(pw->pw_gecos).c_str(), match.c_str(), match.size()) == 0;
+			strncasecmp(u8gecos.z_str(), match.c_str(), match.size()) == 0;
 	if (matched)
 		return matched;
 
@@ -827,7 +822,7 @@ objectdetails_t UnixUserPlugin::objectdetailsFromPwent(const struct passwd *pw)
 
 	ud.SetPropString(OB_PROP_S_LOGIN, pw->pw_name);
 	ud.SetClass(shell_to_class(m_config, pw->pw_shell));
-	auto gecos = m_iconv->convert(pw->pw_gecos);
+	auto gecos = convert_to<std::string>("UTF-8", pw->pw_gecos, rawsize(pw->pw_gecos), m_charset);
 
 	// gecos may contain room/phone number etc. too
 	auto comma = gecos.find(",");

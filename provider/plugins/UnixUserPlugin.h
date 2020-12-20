@@ -288,8 +288,6 @@ public:
 	virtual void deleteSubObjectRelation(userobject_relation_t, const objectid_t &parent, const objectid_t &child) override;
 
 private:
-	std::unique_ptr<KC::iconv_context<std::string, std::string>> m_iconv;
-
 	/**
 	 * Find a user with specific name
 	 *
@@ -453,6 +451,8 @@ private:
 	 * @throw runtime_error Thrown when errno was set.
 	 */
 	void errnoCheck(const std::string &, int) const;
+
+	const char *m_charset = nullptr;
 };
 
 
