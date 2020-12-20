@@ -112,10 +112,10 @@ class KC_EXPORT_DYCAST iconv_context KC_FINAL :
 	 */
 	To_Type convert(const char *lpRaw, size_t cbRaw)
 	{
-		m_to.clear();
-		doconvert(lpRaw, cbRaw, this, [](void *obj, const char *b, size_t z) {
-			static_cast<iconv_context<To_Type, From_Type> *>(obj)->
-				m_to.append(reinterpret_cast<typename To_Type::const_pointer>(b),
+		To_Type m_to;
+		doconvert(lpRaw, cbRaw, &m_to, [](void *obj, const char *b, size_t z) {
+			static_cast<To_Type *>(obj)->
+				append(reinterpret_cast<typename To_Type::const_pointer>(b),
 				z / sizeof(typename To_Type::value_type));
 		});
 		return m_to;
@@ -133,9 +133,6 @@ class KC_EXPORT_DYCAST iconv_context KC_FINAL :
 		return convert(iconv_charset<From_Type>::rawptr(from),
 		       iconv_charset<From_Type>::rawsize(from));
 	}
-
-	private:
-	To_Type	m_to;
 };
 
 /**
