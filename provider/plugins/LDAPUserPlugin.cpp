@@ -473,17 +473,7 @@ void LDAPUserPlugin::InitPlugin(std::shared_ptr<ECStatsCollector> sc)
 
 	/* FIXME encode the user and password, now it depends on which charset the config is saved in */
 	m_ldap = ConnectLDAP(nullptr, nullptr);
-	const char *ldap_server_charset = m_config->GetSetting("ldap_server_charset");
-	try {
-		m_iconv.reset(new decltype(m_iconv)::element_type("UTF-8", ldap_server_charset));
-	} catch (const convert_exception &e) {
-		throw ldap_error(format("Cannot convert %s to UTF-8: %s", ldap_server_charset, e.what()));
-	}
-	try {
-		m_iconvrev.reset(new decltype(m_iconv)::element_type(m_config->GetSetting("ldap_server_charset"), "UTF-8"));
-	} catch (const convert_exception &e) {
-		throw ldap_error(format("Cannot convert UTF-8 to %s: %s", ldap_server_charset, e.what()));
-	}
+	m_charset = m_config->GetSetting("ldap_server_charset");
 }
 
 int LDAPUserPlugin::setup_ldap(const char *server, bool tls, LDAP **ldp)
@@ -1408,7 +1398,7 @@ objectsignature_t LDAPUserPlugin::resolveName(objectclass_t objclass,
 	if (attrs->empty())
 		throw std::runtime_error("Unable to resolve name with no attributes");
 	auto signatures = resolveObjectsFromAttributes(objclass,
-		std::list<std::string>{m_iconvrev->convert(name)},
+		std::list<std::string>{convert_to<std::string>(m_charset, name, rawsize(name), "UTF-8")},
 		attrs->get(), company);
 	if (signatures.empty())
 		throw objectnotfound(name+" not found in LDAP");
@@ -1466,7 +1456,7 @@ objectsignature_t LDAPUserPlugin::authenticateUserBind(const std::string &userna
 	} catch (const std::exception &e) {
 		throw login_error("K-1583: LDAP auth channel: "s + e.what());
 	}
-	rc = ldap_simple_bind_s(m_ldap2, dn.c_str(), m_iconvrev->convert(password).c_str());
+	rc = ldap_simple_bind_s(m_ldap2, dn.c_str(), convert_to<std::string>(m_charset, password, rawsize(password), "UTF-8").c_str());
 	if (rc == LDAP_SUCCESS)
 		return signature;
 	if (rc == LDAP_INVALID_CREDENTIALS)
@@ -1478,7 +1468,7 @@ objectsignature_t LDAPUserPlugin::authenticateUserBind(const std::string &userna
 	} catch (const std::exception &e) {
 		throw login_error("K-1586: LDAP auth channel: "s + e.what());
 	}
-	rc = ldap_simple_bind_s(m_ldap2, dn.c_str(), m_iconvrev->convert(password).c_str());
+	rc = ldap_simple_bind_s(m_ldap2, dn.c_str(), convert_to<std::string>(m_charset, password, rawsize(password), "UTF-8").c_str());
 	if (rc == LDAP_SUCCESS)
 		return signature;
 	throw login_error(format("K-1587: LDAP auth for user \"%s\": %s", username.c_str(), ldap_err2string(rc)));
@@ -1497,7 +1487,7 @@ objectsignature_t LDAPUserPlugin::authenticateUserPassword(const std::string &us
 	CONFIG_TO_ATTR(request_attrs, unique_attr, "ldap_user_unique_attribute");
 	CONFIG_TO_ATTR(request_attrs, nonactive_attr, "ldap_nonactive_attribute");
 	auto ldap_basedn = getSearchBase(company);
-	auto ldap_filter = getObjectSearchFilter(objectid_t(m_iconvrev->convert(username), ACTIVE_USER), loginname_attr);
+	auto ldap_filter = getObjectSearchFilter(objectid_t(convert_to<std::string>(m_charset, username, rawsize(username), "UTF-8"), ACTIVE_USER), loginname_attr);
 
 	/* LDAP filter does not exist, user does not exist, user cannot login */
 	if (ldap_filter.empty())
@@ -1519,10 +1509,12 @@ objectsignature_t LDAPUserPlugin::authenticateUserPassword(const std::string &us
 		throw runtime_error("ldap_dn: broken.");
 
 	FOREACH_ATTR(entry) {
-		if (loginname_attr != nullptr && strcasecmp(att, loginname_attr) == 0)
-			d.SetPropString(OB_PROP_S_LOGIN, m_iconv->convert(getLDAPAttributeValue(att, entry)));
-		else if (password_attr != nullptr && strcasecmp(att, password_attr) == 0)
+		if (loginname_attr != nullptr && strcasecmp(att, loginname_attr) == 0) {
+			auto av = getLDAPAttributeValue(att, entry);
+			d.SetPropString(OB_PROP_S_LOGIN, convert_to<std::string>("UTF-8", av, rawsize(av), m_charset));
+		} else if (password_attr != nullptr && strcasecmp(att, password_attr) == 0) {
 			d.SetPropString(OB_PROP_S_PASSWORD, getLDAPAttributeValue(att, entry));
+		}
 
 		if (unique_attr && !strcasecmp(att, unique_attr)) {
 			signature.id.id = getLDAPAttributeValue(att, entry);
@@ -1535,7 +1527,7 @@ objectsignature_t LDAPUserPlugin::authenticateUserPassword(const std::string &us
 	END_FOREACH_ATTR
 
 	auto strCryptedpw = d.GetPropString(OB_PROP_S_PASSWORD);
-	auto strPasswordConverted = m_iconvrev->convert(password);
+	auto strPasswordConverted = convert_to<std::string>(m_charset, password, rawsize(password), "UTF-8");
 	if (strCryptedpw.empty())
 		throw login_error("Trying to authenticate failed: password field is empty or unreadable");
 	if (signature.id.id.empty())
@@ -1865,7 +1857,7 @@ LDAPUserPlugin::getObjectDetails(const std::list<objectid_t> &objectids)
 
 					if ((ulPropTag & 0xFFFE) == 0x1E) // if (PROP_TYPE(ulPropTag) == PT_STRING8 || PT_UNICODE)
 						for (auto &i : ldap_attrs)
-							i = m_iconv->convert(i);
+							i = convert_to<std::string>("UTF-8", i, rawsize(i), m_charset);
 
 					if (ulPropTag & MV_FLAG)
 						sObjDetails.SetPropListString(static_cast<property_key_t>(ulPropTag), std::move(ldap_attrs));
@@ -1877,6 +1869,8 @@ LDAPUserPlugin::getObjectDetails(const std::list<objectid_t> &objectids)
 			}
 
 			/* Objectclass specific properties */
+			auto av = getLDAPAttributeValue(att, entry);
+			auto sav = convert_to<std::string>("UTF-8", av, rawsize(av), m_charset);
 			switch (sObjDetails.GetClass()) {
 			case ACTIVE_USER:
 			case NONACTIVE_USER:
@@ -1884,13 +1878,13 @@ LDAPUserPlugin::getObjectDetails(const std::list<objectid_t> &objectids)
 			case NONACTIVE_EQUIPMENT:
 			case NONACTIVE_CONTACT:
 				if (loginname_attr != nullptr && strcasecmp(att, loginname_attr) == 0)
-					sObjDetails.SetPropString(OB_PROP_S_LOGIN, m_iconv->convert(getLDAPAttributeValue(att, entry)));
+					sObjDetails.SetPropString(OB_PROP_S_LOGIN, sav);
 				if (user_fullname_attr != nullptr && strcasecmp(att, user_fullname_attr) == 0)
-					sObjDetails.SetPropString(OB_PROP_S_FULLNAME, m_iconv->convert(getLDAPAttributeValue(att, entry)));
+					sObjDetails.SetPropString(OB_PROP_S_FULLNAME, sav);
 				if (password_attr != nullptr && strcasecmp(att, password_attr) == 0)
 					sObjDetails.SetPropString(OB_PROP_S_PASSWORD, getLDAPAttributeValue(att, entry));
 				if (emailaddress_attr != nullptr && strcasecmp(att, emailaddress_attr) == 0)
-					sObjDetails.SetPropString(OB_PROP_S_EMAIL, m_iconv->convert(getLDAPAttributeValue(att, entry)));
+					sObjDetails.SetPropString(OB_PROP_S_EMAIL, sav);
 				if (emailaliases_attr != nullptr && strcasecmp(att, emailaliases_attr) == 0)
 					sObjDetails.SetPropListString(OB_PROP_LS_ALIASES, getLDAPAttributeValues(att, entry));
 				if (isadmin_attr && !strcasecmp(att, isadmin_attr)) {
@@ -1898,7 +1892,7 @@ LDAPUserPlugin::getObjectDetails(const std::list<objectid_t> &objectids)
 					sObjDetails.SetPropInt(OB_PROP_I_ADMINLEVEL, std::min(2, atoi(ldap_attr.c_str())));
 				}
 				if (resource_type_attr != nullptr && strcasecmp(att, resource_type_attr) == 0)
-					sObjDetails.SetPropString(OB_PROP_S_RESOURCE_DESCRIPTION, m_iconv->convert(getLDAPAttributeValue(att, entry)));
+					sObjDetails.SetPropString(OB_PROP_S_RESOURCE_DESCRIPTION, sav);
 				if (resource_capacity_attr && !strcasecmp(att, resource_capacity_attr)) {
 					auto ldap_attr = getLDAPAttributeValue(att, entry);
 					sObjDetails.SetPropInt(OB_PROP_I_RESOURCE_CAPACITY, atoi(ldap_attr.c_str()));
@@ -1925,12 +1919,11 @@ LDAPUserPlugin::getObjectDetails(const std::list<objectid_t> &objectids)
 			case DISTLIST_GROUP:
 			case DISTLIST_SECURITY:
 				if (group_fullname_attr && !strcasecmp(att, group_fullname_attr)) {
-					auto ldap_attr = m_iconv->convert(getLDAPAttributeValue(att, entry));
-					sObjDetails.SetPropString(OB_PROP_S_LOGIN, ldap_attr);
-					sObjDetails.SetPropString(OB_PROP_S_FULLNAME, std::move(ldap_attr));
+					sObjDetails.SetPropString(OB_PROP_S_LOGIN, sav);
+					sObjDetails.SetPropString(OB_PROP_S_FULLNAME, sav);
 				}
 				if (emailaddress_attr != nullptr && strcasecmp(att, emailaddress_attr) == 0)
-					sObjDetails.SetPropString(OB_PROP_S_EMAIL, m_iconv->convert(getLDAPAttributeValue(att, entry)));
+					sObjDetails.SetPropString(OB_PROP_S_EMAIL, sav);
 				if (emailaliases_attr != nullptr && strcasecmp(att, emailaliases_attr) == 0)
 					sObjDetails.SetPropListString(OB_PROP_LS_ALIASES, getLDAPAttributeValues(att, entry));
 
@@ -1950,20 +1943,18 @@ LDAPUserPlugin::getObjectDetails(const std::list<objectid_t> &objectids)
 				break;
 			case DISTLIST_DYNAMIC:
 				if (dynamicgroup_name_attr && !strcasecmp(att, dynamicgroup_name_attr)) {
-					auto ldap_attr = m_iconv->convert(getLDAPAttributeValue(att, entry));
-					sObjDetails.SetPropString(OB_PROP_S_LOGIN, ldap_attr);
-					sObjDetails.SetPropString(OB_PROP_S_FULLNAME, std::move(ldap_attr));
+					sObjDetails.SetPropString(OB_PROP_S_LOGIN, sav);
+					sObjDetails.SetPropString(OB_PROP_S_FULLNAME, sav);
 				}
 				if (emailaddress_attr != nullptr && strcasecmp(att, emailaddress_attr) == 0)
-					sObjDetails.SetPropString(OB_PROP_S_EMAIL, m_iconv->convert(getLDAPAttributeValue(att, entry)));
+					sObjDetails.SetPropString(OB_PROP_S_EMAIL, sav);
 				if (emailaliases_attr != nullptr && strcasecmp(att, emailaliases_attr) == 0)
 					sObjDetails.SetPropListString(OB_PROP_LS_ALIASES, getLDAPAttributeValues(att, entry));
 				break;
 			case CONTAINER_COMPANY:
 				if (company_fullname_attr && !strcasecmp(att, company_fullname_attr)) {
-					auto ldap_attr = m_iconv->convert(getLDAPAttributeValue(att, entry));
-					sObjDetails.SetPropString(OB_PROP_S_LOGIN, ldap_attr);
-					sObjDetails.SetPropString(OB_PROP_S_FULLNAME, std::move(ldap_attr));
+					sObjDetails.SetPropString(OB_PROP_S_LOGIN, sav);
+					sObjDetails.SetPropString(OB_PROP_S_FULLNAME, sav);
 				}
 				if (company_server_attr != nullptr && strcasecmp(att, company_server_attr) == 0)
 					sObjDetails.SetPropString(OB_PROP_S_SERVERNAME, getLDAPAttributeValue(att, entry));
@@ -1981,9 +1972,8 @@ LDAPUserPlugin::getObjectDetails(const std::list<objectid_t> &objectids)
 				break;
 			case CONTAINER_ADDRESSLIST:
 				if (addresslist_name_attr && !strcasecmp(att, addresslist_name_attr)) {
-					auto ldap_attr = m_iconv->convert(getLDAPAttributeValue(att, entry));
-					sObjDetails.SetPropString(OB_PROP_S_LOGIN, ldap_attr);
-					sObjDetails.SetPropString(OB_PROP_S_FULLNAME, std::move(ldap_attr));
+					sObjDetails.SetPropString(OB_PROP_S_LOGIN, sav);
+					sObjDetails.SetPropString(OB_PROP_S_FULLNAME, sav);
 				}
 				break;
 			case OBJECTCLASS_UNKNOWN:
@@ -2395,7 +2385,7 @@ LDAPUserPlugin::searchObject(const std::string &match, unsigned int ulFlags)
 	LOG_PLUGIN_DEBUG("%s %s flags:%x", __FUNCTION__, match.c_str(), ulFlags);
 	auto ldap_basedn = getSearchBase();
 	auto ldap_filter = getSearchFilter();
-	auto escMatch = StringEscapeSequence(m_iconvrev->convert(match));
+	auto escMatch = StringEscapeSequence(convert_to<std::string>(m_charset, match, rawsize(match), "UTF-8"));
 
 	if (! (ulFlags & EMS_AB_ADDRESS_LOOKUP)) {
 		try {
@@ -2473,8 +2463,10 @@ objectdetails_t LDAPUserPlugin::getPublicStoreDetails()
 		throw runtime_error("ldap_dn: broken.");
 
 	FOREACH_ATTR(entry) {
-		if (unique_attr && !strcasecmp(att, unique_attr))
-			details.SetPropString(OB_PROP_S_SERVERNAME, m_iconv->convert(getLDAPAttributeValue(att, entry)));
+		if (unique_attr && !strcasecmp(att, unique_attr)) {
+			auto av = getLDAPAttributeValue(att, entry);
+			details.SetPropString(OB_PROP_S_SERVERNAME, convert_to<std::string>("UTF-8", av, rawsize(av), m_charset));
+		}
 	}
 	END_FOREACH_ATTR
 	return details;
@@ -2499,8 +2491,10 @@ serverlist_t LDAPUserPlugin::getServers()
     FOREACH_ENTRY(res)
     {
     	FOREACH_ATTR(entry) {
-			if (name_attr != nullptr && strcasecmp(att, name_attr) == 0)
-				serverlist.emplace_back(m_iconv->convert(getLDAPAttributeValue(att, entry)));
+			if (name_attr != nullptr && strcasecmp(att, name_attr) == 0) {
+				auto av = getLDAPAttributeValue(att, entry);
+				serverlist.emplace_back(convert_to<std::string>("UTF-8", av, rawsize(av), m_charset));
+			}
         }
         END_FOREACH_ATTR
     }
@@ -2555,16 +2549,18 @@ serverdetails_t LDAPUserPlugin::getServerDetails(const std::string &server)
 		throw runtime_error("ldap_dn: broken.");
 
 	FOREACH_ATTR(entry) {
+		auto av = getLDAPAttributeValue(att, entry);
+		auto sav = convert_to<std::string>("UTF-8", av, rawsize(av), m_charset);
 		if (address_attr != nullptr && strcasecmp(att, address_attr) == 0)
-			strAddress = m_iconv->convert(getLDAPAttributeValue(att, entry));
+			strAddress = std::move(sav);
 		if (http_port_attr != nullptr && strcasecmp(att, http_port_attr) == 0)
-			strHttpPort = m_iconv->convert(getLDAPAttributeValue(att, entry));
+			strHttpPort = std::move(sav);
 		if (ssl_port_attr != nullptr && strcasecmp(att, ssl_port_attr) == 0)
-			strSslPort = m_iconv->convert(getLDAPAttributeValue(att, entry));
+			strSslPort = std::move(sav);
 		if (file_path_attr != nullptr && strcasecmp(att, file_path_attr) == 0)
-			strFilePath = m_iconv->convert(getLDAPAttributeValue(att, entry));
+			strFilePath = std::move(sav);
 		if (proxy_path_attr != nullptr && strcasecmp(att, proxy_path_attr) == 0)
-		    strProxyPath = m_iconv->convert(getLDAPAttributeValue(att, entry));
+			strProxyPath = std::move(sav);
 	}
 	END_FOREACH_ATTR
 
