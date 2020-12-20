@@ -6,7 +6,6 @@
 #include <kopano/zcdefs.h>
 #include <list>
 #include <map>
-#include <memory>
 #include <string>
 #include <stdexcept>
 #include <iconv.h>
@@ -58,8 +57,7 @@ class KC_EXPORT_THROW illegal_sequence_exception KC_FINAL :
  */
 class KC_EXPORT iconv_context KC_FINAL {
 	public:
-	iconv_context(const iconv_context &) = delete;
-	iconv_context &operator=(const iconv_context &) = delete;
+	iconv_context(iconv_context &&);
 	iconv_context(const char *tocode, const char *fromcode);
 	~iconv_context();
 
@@ -214,8 +212,8 @@ private:
 		context_key key(create_key<To_Type, From_Type>(tocode, fromcode));
 		auto iContext = m_contexts.find(key);
 		if (iContext == m_contexts.cend())
-			iContext = m_contexts.emplace(key, std::make_unique<iconv_context>(tocode, fromcode)).first;
-		return *iContext->second;
+			iContext = m_contexts.emplace(key, iconv_context(tocode, fromcode)).first;
+		return iContext->second;
 	}
 
 	/**
@@ -226,7 +224,7 @@ private:
 		pfFromCode = 2
 	};
 
-	std::map<context_key, std::unique_ptr<iconv_context>> m_contexts;
+	std::map<context_key, iconv_context> m_contexts;
 	std::list<std::string>	m_lstStrings;
 	std::list<std::wstring>	m_lstWstrings;
 

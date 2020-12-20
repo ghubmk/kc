@@ -141,6 +141,13 @@ iconv_context::iconv_context(const char *tocode, const char *fromorig)
 		      ": " + strerror(errno));
 }
 
+iconv_context::iconv_context(iconv_context &&o) :
+	m_cd(o.m_cd), m_bForce(o.m_bForce), m_bHTML(o.m_bHTML),
+	m_translit_run(o.m_translit_run), m_translit_adv(o.m_translit_adv)
+{
+	o.m_cd = iconv_t(-1);
+}
+
 iconv_context::~iconv_context()
 {
 	if (m_cd != (iconv_t)(-1))
