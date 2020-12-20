@@ -215,4 +215,31 @@ void iconv_context_base::doconvert(const char *lpFrom, size_t cbFrom)
 		append(buf, sizeof(buf) - cbDst);
 }
 
+bool convert_context::context_key::operator<(const context_key &o) const
+{
+	return std::tie(fromtype, totype, fromcode, tocode) <
+	       std::tie(o.fromtype, o.totype, o.fromcode, o.tocode);
+}
+
+/*
+ * Even if the definition of TCHAR is different between ASCII and Unicode
+ * builds, some of the oldest functions in the MAPI spec have the Unicodeness
+ * of arguments conveyed by a flags argument, and the char type means nothing.
+ */
+utf8string tfstring_to_utf8(const TCHAR *s, unsigned int fl)
+{
+	if (s == nullptr)
+		return utf8string(nullptr);
+	return (fl & MAPI_UNICODE) ? convert_to<utf8string>(reinterpret_cast<const wchar_t *>(s)) :
+	       convert_to<utf8string>(reinterpret_cast<const char *>(s));
+}
+
+std::string tfstring_to_lcl(const TCHAR *s, unsigned int fl)
+{
+	if (s == nullptr)
+		return {};
+	return (fl & MAPI_UNICODE) ? convert_to<std::string>(reinterpret_cast<const wchar_t *>(s)) :
+	       convert_to<std::string>(reinterpret_cast<const char *>(s));
+}
+
 } /* namespace */
