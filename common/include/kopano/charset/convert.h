@@ -4,9 +4,9 @@
  */
 #pragma once
 #include <kopano/zcdefs.h>
-#include <map>
-#include <set>
 #include <list>
+#include <map>
+#include <memory>
 #include <string>
 #include <stdexcept>
 #include <iconv.h>
@@ -198,8 +198,6 @@ inline To_Type convert_to(const char *tocode, const From_Type &from,
 class KC_EXPORT convert_context KC_FINAL {
 public:
 	convert_context() = default;
-	~convert_context();
-
 	/**
 	 * @brief	Converts a string to a string with a different charset.
 	 *
@@ -366,11 +364,9 @@ private:
 	{
 		context_key key(create_key<To_Type, From_Type>(NULL, NULL));
 		auto iContext = m_contexts.find(key);
-		if (iContext == m_contexts.cend()) {
-			auto lpContext = new iconv_context<To_Type, From_Type>();
-			iContext = m_contexts.emplace(key, lpContext).first;
-		}
-		return dynamic_cast<iconv_context<To_Type, From_Type> *>(iContext->second);
+		if (iContext == m_contexts.cend())
+			iContext = m_contexts.emplace(key, std::make_unique<iconv_context<To_Type, From_Type>>()).first;
+		return dynamic_cast<iconv_context<To_Type, From_Type> *>(iContext->second.get());
 	}
 
 	/**
@@ -389,11 +385,9 @@ private:
 	{
 		context_key key(create_key<To_Type, From_Type>(NULL, fromcode));
 		auto iContext = m_contexts.find(key);
-		if (iContext == m_contexts.cend()) {
-			auto lpContext = new iconv_context<To_Type, From_Type>(fromcode);
-			iContext = m_contexts.emplace(key, lpContext).first;
-		}
-		return dynamic_cast<iconv_context<To_Type, From_Type> *>(iContext->second);
+		if (iContext == m_contexts.cend())
+			iContext = m_contexts.emplace(key, std::make_unique<iconv_context<To_Type, From_Type>>(fromcode)).first;
+		return dynamic_cast<iconv_context<To_Type, From_Type> *>(iContext->second.get());
 	}
 
 	/**
@@ -412,11 +406,9 @@ private:
 	{
 		context_key key(create_key<To_Type, From_Type>(tocode, fromcode));
 		auto iContext = m_contexts.find(key);
-		if (iContext == m_contexts.cend()) {
-			auto lpContext = new iconv_context<To_Type, From_Type>(tocode, fromcode);
-			iContext = m_contexts.emplace(key, lpContext).first;
-		}
-		return dynamic_cast<iconv_context<To_Type, From_Type> *>(iContext->second);
+		if (iContext == m_contexts.cend())
+			iContext = m_contexts.emplace(key, std::make_unique<iconv_context<To_Type, From_Type>>(tocode, fromcode)).first;
+		return dynamic_cast<iconv_context<To_Type, From_Type> *>(iContext->second.get());
 	}
 
 	/**
@@ -427,7 +419,7 @@ private:
 		pfFromCode = 2
 	};
 
-	std::map<context_key, iconv_context_base *> m_contexts;
+	std::map<context_key, std::unique_ptr<iconv_context_base>> m_contexts;
 	std::list<std::string>	m_lstStrings;
 	std::list<std::wstring>	m_lstWstrings;
 

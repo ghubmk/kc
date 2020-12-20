@@ -215,10 +215,4 @@ void iconv_context_base::doconvert(const char *lpFrom, size_t cbFrom)
 		append(buf, sizeof(buf) - cbDst);
 }
 
-convert_context::~convert_context()
-{
-	for (auto &ictx : m_contexts)
-		delete ictx.second;
-}
-
 } /* namespace */
