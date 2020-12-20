@@ -185,14 +185,14 @@ public:
 	KC_HIDDEN To_Type convert_to(const From_Type &from)
 	{
 		static_assert(!std::is_same<To_Type, From_Type>::value, "pointless conversion");
-		return get_context<To_Type, From_Type>()->convert(from);
+		return get_context<To_Type, From_Type>(iconv_charset<To_Type>::name(), iconv_charset<From_Type>::name())->convert(from);
 	}
 
 	template<typename To_Type, typename From_Type>
 	KC_HIDDEN To_Type convert_to(const From_Type &from, size_t cbBytes,
 	    const char *fromcode)
 	{
-		return get_context<To_Type, From_Type>(fromcode)->
+		return get_context<To_Type, From_Type>(iconv_charset<To_Type>::name(), fromcode)->
 		       convert(iconv_charset<From_Type>::rawptr(from), cbBytes);
 	}
 
@@ -237,47 +237,6 @@ private:
 			(fromcode ? fromcode : iconv_charset<From_Type>::name())
 		};
 		return key;
-	}
-
-	/**
-	 * @brief Obtains an iconv_context object.
-	 *
-	 * The correct iconv_context is based on To_Type and From_Type and is
-	 * obtained from the context_map. If the correct iconv_context is not found, a new
-	 * one is created and stored in the context_map;
-	 * @tparam	To_Type	The type of the destination string.
-	 * @tparam	From_Type	The type of the source string.
-	 * @return				A pointer to a iconv_context.
-	 */
-	template<typename To_Type, typename From_Type>
-	KC_HIDDEN iconv_context<To_Type, From_Type> *get_context()
-	{
-		context_key key(create_key<To_Type, From_Type>(NULL, NULL));
-		auto iContext = m_contexts.find(key);
-		if (iContext == m_contexts.cend())
-			iContext = m_contexts.emplace(key, std::make_unique<iconv_context<To_Type, From_Type>>(iconv_charset<To_Type>::name(), iconv_charset<From_Type>::name())).first;
-		return dynamic_cast<iconv_context<To_Type, From_Type> *>(iContext->second.get());
-	}
-
-	/**
-	 * @brief Obtains an iconv_context object.
-	 *
-	 * The correct iconv_context is based on To_Type and fromcode and is
-	 * obtained from the context_map. If the correct iconv_context is not found, a new
-	 * one is created and stored in the context_map;
-	 * @tparam		To_Type	The type of the destination string.
-	 * @param[in]	fromcode	The source charset.
-	 * @return					A pointer to a iconv_context.
-	 */
-	template<typename To_Type, typename From_Type>
-	KC_HIDDEN iconv_context<To_Type, From_Type> *
-	get_context(const char *fromcode)
-	{
-		context_key key(create_key<To_Type, From_Type>(NULL, fromcode));
-		auto iContext = m_contexts.find(key);
-		if (iContext == m_contexts.cend())
-			iContext = m_contexts.emplace(key, std::make_unique<iconv_context<To_Type, From_Type>>(iconv_charset<To_Type>::name(), fromcode)).first;
-		return dynamic_cast<iconv_context<To_Type, From_Type> *>(iContext->second.get());
 	}
 
 	/**
