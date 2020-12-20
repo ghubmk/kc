@@ -54,51 +54,14 @@ class KC_EXPORT_THROW illegal_sequence_exception KC_FINAL :
 };
 
 /**
- * @brief	Performs the generic iconv processing.
- */
-class KC_EXPORT iconv_context_base {
-	public:
-	virtual ~iconv_context_base();
-
-	protected:
-	/**
-	 * @param[in]  tocode		The destination charset.
-	 * @param[out] fromcode		The source charset.
-	 */
-	iconv_context_base(const char* tocode, const char* fromcode);
-
-	/**
-	 * @brief Performs the actual conversion.
-	 *
-	 * Performs the conversion and stores the result in the output string
-	 * by calling append, which must be overridden by a derived class.
-	 * @param[in] lpFrom	Pointer to the source data.
-	 * @param[in] cbFrom	Size of the source data in bytes.
-	 */
-	void doconvert(const char *lpFrom, size_t cbFrom, void *obj, void (*append)(void *, const char *, size_t));
-
-	private:
-	iconv_t	m_cd = reinterpret_cast<iconv_t>(-1);
-	bool m_bForce = true; /* Ignore illegal sequences by default. */
-	bool m_bHTML = false, m_translit_run = false;
-	unsigned int m_translit_adv = 1;
-
-	iconv_context_base(const iconv_context_base &) = delete;
-	iconv_context_base &operator=(const iconv_context_base &) = delete;
-};
-
-/**
  * @brief	Default converter from one charset to another with string types.
  */
-class iconv_context KC_FINAL : public iconv_context_base {
+class KC_EXPORT iconv_context KC_FINAL {
 	public:
-	/**
-	 * Constructs a iconv_context_base with the tocode based on the To_Type
-	 * and the passed fromcode.
-	 */
-	iconv_context(const char *tocode, const char *fromcode)
-		: iconv_context_base(tocode, fromcode)
-	{}
+	iconv_context(const iconv_context &) = delete;
+	iconv_context &operator=(const iconv_context &) = delete;
+	iconv_context(const char *tocode, const char *fromcode);
+	~iconv_context();
 
 	/**
 	 * @brief Performs the conversion.
@@ -132,6 +95,14 @@ class iconv_context KC_FINAL : public iconv_context_base {
 		return convert(null, iconv_charset<From_Type>::rawptr(from),
 		       iconv_charset<From_Type>::rawsize(from));
 	}
+
+	private:
+	void doconvert(const char *lpFrom, size_t cbFrom, void *obj, void (*append)(void *, const char *, size_t));
+
+	iconv_t	m_cd = reinterpret_cast<iconv_t>(-1);
+	bool m_bForce = true; /* Ignore illegal sequences by default. */
+	bool m_bHTML = false, m_translit_run = false;
+	unsigned int m_translit_adv = 1;
 };
 
 /**
